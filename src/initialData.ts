@@ -1,6 +1,7 @@
 import {
   Item,
   Store,
+  Property,
   Department,
   Supplier,
   User,
@@ -110,6 +111,12 @@ export const initialItems: Item[] = [
   }
 ];
 
+export const initialProperties: Property[] = [
+  { id: "PROP-01", name: "Grand Regency Hotel, London", code: "GHL", location: "London, UK" },
+  { id: "PROP-02", name: "Grand Regency Resort, Dubai", code: "GRD", location: "Dubai, UAE" },
+  { id: "PROP-03", name: "Grand Regency Boutique, Paris", code: "GBP", location: "Paris, France" },
+];
+
 export const initialStores: Store[] = [
   { id: "S-01", name: "F&B Main Store", code: "FB-MAIN" },
   { id: "S-02", name: "Housekeeping Store", code: "HK-STORE" },
@@ -140,7 +147,8 @@ export const initialConfig: SystemConfig = {
 export const initialPRs: PRHeader[] = [
   {
     id: "PR-2026-0001",
-    property: "Grand Plaza Resort",
+    propertyId: "PROP-01",
+    property: "Grand Regency Hotel, London",
     storeId: "S-01",
     departmentId: "D-01",
     status: "Approved",
@@ -197,7 +205,8 @@ export const initialPRs: PRHeader[] = [
   },
   {
     id: "PR-2026-0002",
-    property: "Grand Plaza Resort",
+    propertyId: "PROP-01",
+    property: "Grand Regency Hotel, London",
     storeId: "S-02",
     departmentId: "D-02",
     status: "Pending Approval",

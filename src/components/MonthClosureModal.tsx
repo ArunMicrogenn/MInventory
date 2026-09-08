@@ -69,7 +69,7 @@ export default function MonthClosureModal({
 }: MonthClosureModalProps) {
   const currentMonthDefault = new Date().toISOString().slice(0, 7); // YYYY-MM
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthDefault);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>(["all"]);
   const [remarks, setRemarks] = useState<string>("");
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
   const [activeSubTab, setActiveSubTab] = useState<"closure" | "history">("closure");
@@ -87,24 +87,28 @@ export default function MonthClosureModal({
     return `${year}-${String(month).padStart(2, "0")}`;
   };
 
+  const matchStore = (storeId: string) => {
+    if (selectedStoreIds.includes("all") || selectedStoreIds.length === 0) return true;
+    return selectedStoreIds.includes(storeId);
+  };
+
   // Check if month & store is already closed
   const existingClosure = useMemo(() => {
     return closures.find(
       (c) =>
         c.closureMonth === selectedMonth &&
-        (c.storeId === selectedStoreId || c.storeId === "all" || selectedStoreId === "all") &&
+        (selectedStoreIds.includes("all") || selectedStoreIds.includes(c.storeId) || c.storeId === "all") &&
         c.status === "Closed"
     );
-  }, [closures, selectedMonth, selectedStoreId]);
+  }, [closures, selectedMonth, selectedStoreIds]);
 
   // Filter transactions for selected month (YYYY-MM) and store
   const monthGrns = useMemo(() => {
     return grns.filter((g) => {
       const matchMonth = (g.receivedDate || "").startsWith(selectedMonth);
-      const matchStore = selectedStoreId === "all" || g.deliveryStoreId === selectedStoreId;
-      return matchMonth && matchStore && g.status === "Posted";
+      return matchMonth && matchStore(g.deliveryStoreId) && g.status === "Posted";
     });
-  }, [grns, selectedMonth, selectedStoreId]);
+  }, [grns, selectedMonth, selectedStoreIds]);
 
   const monthGrnValue = useMemo(() => {
     return monthGrns.reduce((sum, g) => sum + (g.grandTotal || 0), 0);
@@ -113,10 +117,9 @@ export default function MonthClosureModal({
   const monthIssues = useMemo(() => {
     return issues.filter((i) => {
       const matchMonth = (i.issueDate || "").startsWith(selectedMonth);
-      const matchStore = selectedStoreId === "all" || i.storeId === selectedStoreId;
-      return matchMonth && matchStore && i.status === "Posted";
+      return matchMonth && matchStore(i.storeId) && i.status === "Posted";
     });
-  }, [issues, selectedMonth, selectedStoreId]);
+  }, [issues, selectedMonth, selectedStoreIds]);
 
   const monthIssueValue = useMemo(() => {
     return monthIssues.reduce((sum, i) => {
@@ -133,18 +136,17 @@ export default function MonthClosureModal({
     return returns.filter((r) => {
       const matchMonth = (r.returnDate || "").startsWith(selectedMonth);
       const parentGrn = grns.find((g) => g.id === r.grnId);
-      const matchStore = selectedStoreId === "all" || parentGrn?.deliveryStoreId === selectedStoreId;
-      return matchMonth && matchStore && r.status === "Posted";
+      const storeId = parentGrn?.deliveryStoreId || (r as any).storeId || stores[0]?.id || "";
+      return matchMonth && matchStore(storeId) && r.status === "Posted";
     });
-  }, [returns, grns, selectedMonth, selectedStoreId]);
+  }, [returns, grns, selectedMonth, selectedStoreIds]);
 
   const monthRecons = useMemo(() => {
     return recons.filter((rc) => {
       const matchMonth = (rc.countDate || "").startsWith(selectedMonth);
-      const matchStore = selectedStoreId === "all" || rc.storeId === selectedStoreId;
-      return matchMonth && matchStore && rc.status === "Posted";
+      return matchMonth && matchStore(rc.storeId) && rc.status === "Posted";
     });
-  }, [recons, selectedMonth, selectedStoreId]);
+  }, [recons, selectedMonth, selectedStoreIds]);
 
   const totalVarianceValue = useMemo(() => {
     return monthRecons.reduce((sum, rc) => sum + (rc.totalVarianceValue || 0), 0);
@@ -153,17 +155,16 @@ export default function MonthClosureModal({
   const monthLedgerEntries = useMemo(() => {
     return ledger.filter((l) => {
       const matchMonth = (l.timestamp || "").startsWith(selectedMonth);
-      const matchStore = selectedStoreId === "all" || l.storeId === selectedStoreId;
-      return matchMonth && matchStore;
+      return matchMonth && matchStore(l.storeId);
     });
-  }, [ledger, selectedMonth, selectedStoreId]);
+  }, [ledger, selectedMonth, selectedStoreIds]);
 
   // Current Inventory Valuation for selected store(s)
   const totalInventoryValuation = useMemo(() => {
     return balances
-      .filter((b) => selectedStoreId === "all" || b.storeId === selectedStoreId)
+      .filter((b) => matchStore(b.storeId))
       .reduce((sum, b) => sum + b.qtyOnHand * (b.movingAverageCost || 0), 0);
-  }, [balances, selectedStoreId]);
+  }, [balances, selectedStoreIds]);
 
   // Opening valuation estimate (closing minus net changes)
   const netMonthChange = monthGrnValue - monthIssueValue;
@@ -229,7 +230,7 @@ export default function MonthClosureModal({
 
     // 4. Negative Stock Balances Check
     const negativeStockItems = balances.filter(
-      (b) => (selectedStoreId === "all" || b.storeId === selectedStoreId) && b.qtyOnHand < 0
+      (b) => matchStore(b.storeId) && b.qtyOnHand < 0
     );
     if (negativeStockItems.length === 0) {
       list.push({
@@ -250,13 +251,15 @@ export default function MonthClosureModal({
     }
 
     return list;
-  }, [pendingTransactionsCount, monthRecons, monthLedgerEntries, balances, selectedStoreId]);
+  }, [pendingTransactionsCount, monthRecons, monthLedgerEntries, balances, selectedStoreIds]);
 
   const hasBlockingIssues = checklist.some((c) => c.status === "Blocked");
 
   const runAutoPeriodGenerator = (closedMonth: string) => {
     const nextMonth = getNextMonth(closedMonth);
-    const targetStores = selectedStoreId === "all" ? stores : stores.filter(s => s.id === selectedStoreId);
+    const targetStores = selectedStoreIds.includes("all") 
+      ? stores 
+      : stores.filter(s => selectedStoreIds.includes(s.id));
 
     targetStores.forEach((store) => {
       const storeBalances = balances.filter(b => b.storeId === store.id && b.qtyOnHand > 0);
@@ -299,17 +302,22 @@ export default function MonthClosureModal({
   const handlePerformClosure = () => {
     if (hasBlockingIssues) return;
 
-    const storeObj = stores.find((s) => s.id === selectedStoreId);
-    const storeName = selectedStoreId === "all" ? "All Store Locations (Central Consolidated)" : storeObj?.name || "Selected Store";
+    const storeName = selectedStoreIds.includes("all")
+      ? "All Store Locations (Central Consolidated)"
+      : selectedStoreIds.length === 1
+        ? (stores.find(s => s.id === selectedStoreIds[0])?.name || selectedStoreIds[0])
+        : `Multi-Property (${selectedStoreIds.length} Locations)`;
+
+    const storeIdVal = selectedStoreIds.includes("all") ? "all" : selectedStoreIds.join(",");
 
     const record: MonthClosureRecord = {
-      id: `EOM-${selectedMonth.replace("-", "")}-${selectedStoreId.toUpperCase()}`,
+      id: `EOM-${selectedMonth.replace("-", "")}-${storeIdVal.toUpperCase().slice(0, 10)}`,
       closureMonth: selectedMonth,
       closedAt: new Date().toISOString(),
       closedBy: currentUser.name,
       closedById: currentUser.id,
       closedByRole: currentUser.role,
-      storeId: selectedStoreId,
+      storeId: storeIdVal,
       storeName: storeName,
       status: "Closed",
       openingValuation: openingValuation,
@@ -449,17 +457,49 @@ export default function MonthClosureModal({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black uppercase text-purple-900 mb-1">Target Store Location</label>
-                    <select
-                      value={selectedStoreId}
-                      onChange={(e) => setSelectedStoreId(e.target.value)}
-                      className="px-3 py-2 bg-white border border-purple-300 rounded-lg text-xs font-bold text-slate-800 shadow-xs"
-                    >
-                      <option value="all">All Stores (Consolidated)</option>
-                      {stores.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
+                    <label className="block text-[10px] font-black uppercase text-purple-900 mb-1.5">Target Properties / Stores (Multi-Select)</label>
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStoreIds(["all"])}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          selectedStoreIds.includes("all")
+                            ? "bg-purple-700 text-white shadow-xs"
+                            : "bg-white text-slate-700 border border-purple-200 hover:bg-purple-50"
+                        }`}
+                      >
+                        All Properties (Consolidated)
+                      </button>
+                      {stores.map((s) => {
+                        const isSelected = !selectedStoreIds.includes("all") && selectedStoreIds.includes(s.id);
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              if (selectedStoreIds.includes("all")) {
+                                setSelectedStoreIds([s.id]);
+                              } else {
+                                if (isSelected) {
+                                  const next = selectedStoreIds.filter(id => id !== s.id);
+                                  setSelectedStoreIds(next.length === 0 ? ["all"] : next);
+                                } else {
+                                  setSelectedStoreIds([...selectedStoreIds, s.id]);
+                                }
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-purple-700 text-white shadow-xs"
+                                : "bg-white text-slate-700 border border-purple-200 hover:bg-purple-50"
+                            }`}
+                          >
+                            <span>{s.name}</span>
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 

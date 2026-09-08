@@ -33,6 +33,13 @@ export interface Store {
   code: string;
 }
 
+export interface Property {
+  id: string;
+  name: string;
+  code: string;
+  location: string;
+}
+
 export interface Department {
   id: string;
   name: string;
@@ -93,6 +100,7 @@ export interface PRLine {
 
 export interface PRHeader {
   id: string; // PR-YYYY-0001
+  propertyId?: string;
   property: string;
   storeId: string;
   departmentId: string;
@@ -124,6 +132,7 @@ export interface POLine {
 
 export interface POHeader {
   id: string; // PO-YYYY-0001
+  propertyId?: string;
   supplierId: string;
   purchaseType: "Capex" | "Opex" | "Emergency" | "Regular";
   deliveryStoreId: string;
@@ -152,6 +161,7 @@ export interface MRLine {
 
 export interface MRHeader {
   id: string; // MR-YYYY-0001
+  propertyId?: string;
   fromStoreId: string;
   requestingDeptId: string;
   status: TransactionStatus;
@@ -184,6 +194,7 @@ export interface GRNLine {
 
 export interface GRNHeader {
   id: string; // GRN-YYYY-0001
+  propertyId?: string;
   sourcePOId?: string; // empty if direct receipt
   deliveryStoreId: string;
   supplierId?: string;
@@ -209,6 +220,7 @@ export interface ReceiptReturnLine {
 
 export interface ReceiptReturnHeader {
   id: string; // RET-YYYY-0001
+  propertyId?: string;
   grnId: string;
   supplierId: string;
   status: "Draft" | "Pending Approval" | "Posted" | "Rejected";
@@ -232,6 +244,7 @@ export interface RateModLine {
 
 export interface RateModHeader {
   id: string; // MOD-YYYY-0001
+  propertyId?: string;
   grnId: string;
   status: "Draft" | "Pending Approval" | "Posted" | "Rejected";
   initiatedDate: string;
@@ -251,6 +264,7 @@ export interface IssueLine {
 
 export interface IssueHeader {
   id: string; // ISS-YYYY-0001
+  propertyId?: string;
   sourceMRId?: string;
   requestingDeptId: string;
   storeId: string;
@@ -273,6 +287,7 @@ export interface IssueReturnLine {
 
 export interface IssueReturnHeader {
   id: string; // ISR-YYYY-0001
+  propertyId?: string;
   issueId: string;
   storeId: string;
   departmentId: string;
@@ -291,6 +306,7 @@ export interface StoreOpeningLine {
 
 export interface StoreOpeningHeader {
   id: string; // OPN-YYYY-0001
+  propertyId?: string;
   storeId: string;
   openingDate: string;
   status: "Draft" | "Pending Approval" | "Posted";
@@ -311,6 +327,7 @@ export interface ReconciliationLine {
 
 export interface ReconciliationHeader {
   id: string; // REC-YYYY-0001
+  propertyId?: string;
   storeId: string;
   countDate: string;
   isBlind: boolean;
@@ -324,6 +341,7 @@ export interface ReconciliationHeader {
 // Stock Ledger entry schema
 export interface StockLedgerEntry {
   id: string;
+  propertyId?: string;
   timestamp: string;
   storeId: string;
   itemId: string;
@@ -357,6 +375,7 @@ export interface DayClosureChecklistItem {
 
 export interface DayClosureRecord {
   id: string; // EOD-YYYYMMDD-STOREID or EOD-YYYYMMDD-ALL
+  propertyId?: string;
   closureDate: string; // YYYY-MM-DD
   closedAt: string; // ISO timestamp
   closedBy: string; // User Name
@@ -392,6 +411,7 @@ export interface MonthClosureChecklistItem {
 
 export interface MonthClosureRecord {
   id: string; // EOM-YYYYMM-STOREID or EOM-YYYYMM-ALL
+  propertyId?: string;
   closureMonth: string; // YYYY-MM
   closedAt: string; // ISO timestamp
   closedBy: string; // User Name

@@ -3,14 +3,14 @@ import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } fr
 import { auth, googleProvider } from "./lib/firebase";
 import { subscribeToCollection, updateDocument, deleteDocument } from "./lib/firestoreService";
 import { 
-  Item, Store, Department, Supplier, User, SystemConfig, 
+  Item, Store, Property, Department, Supplier, User, SystemConfig, 
   PRHeader, POHeader, MRHeader, GRNHeader, ReceiptReturnHeader, 
   RateModHeader, IssueHeader, IssueReturnHeader, 
   StoreOpeningHeader, ReconciliationHeader, StockBalance, StockLedgerEntry,
   DayClosureRecord, MonthClosureRecord
 } from "./types";
 import { 
-  initialItems, initialStores, initialDepartments, initialSuppliers, 
+  initialItems, initialStores, initialProperties, initialDepartments, initialSuppliers, 
   initialUsers, initialConfig, initialPRs, initialPOs, initialMRs, 
   initialGRNs, initialStockBalances, initialStockLedger, initialDayClosures
 } from "./initialData";
@@ -131,6 +131,9 @@ export default function App() {
       console.warn("Storage error", e);
     }
   };
+
+  const [properties, setProperties] = useState<Property[]>(initialProperties);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
 
   const [items, setItems] = useState<Item[]>(initialItems);
   const [stores, setStores] = useState<Store[]>(initialStores);
@@ -801,8 +804,17 @@ export default function App() {
         {/* TOP STATUS BAR */}
         <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-2 font-bold text-xs text-slate-500">
-            <span>Property Name:</span>
-            <span className="text-slate-800 font-extrabold bg-slate-100 px-2 py-0.5 rounded">Grand Regency Hotel, London</span>
+            <span>Property Location:</span>
+            <select
+              value={selectedPropertyId}
+              onChange={(e) => setSelectedPropertyId(e.target.value)}
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-extrabold text-slate-800 shadow-xs focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+            >
+              <option value="all">All Properties (Global Consolidated)</option>
+              {properties.map(p => (
+                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+              ))}
+            </select>
           </div>
 
           <div className="flex items-center gap-4">
@@ -829,156 +841,516 @@ export default function App() {
 
         {/* ROUTED COMPONENT BODY */}
         <div className="flex-1 overflow-y-auto p-8">
-          {activeTab === "dashboard" && (
-            <Dashboard 
-              prs={prs}
-              pos={pos}
-              mrs={mrs}
-              grns={grns}
-              returns={returns}
-              rateMods={rateMods}
-              openings={openings}
-              reconciliations={recons}
-              balances={balances}
-              items={items}
-              stores={stores}
-              config={config}
-              setConfig={setConfig}
-              currentUser={currentUser}
-              setCurrentUser={setCurrentUser}
-              users={users}
-              onApproveTransaction={handleApproveTransaction}
-              onViewAudit={handleOpenAuditTimeline}
-              onOpenDayClosure={() => setDayClosureModalOpen(true)}
-            />
-          )}
+          {(() => {
+            const matchProperty = (propId?: string) => {
+              if (selectedPropertyId === "all") return true;
+              return !propId || propId === selectedPropertyId;
+            };
 
-          {activeTab === "masters" && (
-            <MasterDataModule 
-              items={items} setItems={setItems}
-              stores={stores} setStores={setStores}
-              departments={departments}
-              suppliers={suppliers}
-              users={users}
-            />
-          )}
+            const filteredPrs = prs.filter(p => matchProperty(p.propertyId));
+            const filteredPos = pos.filter(p => matchProperty(p.propertyId));
+            const filteredMrs = mrs.filter(p => matchProperty(p.propertyId));
+            const filteredGrns = grns.filter(p => matchProperty(p.propertyId));
+            const filteredReturns = returns.filter(r => matchProperty(r.propertyId));
+            const filteredRateMods = rateMods.filter(rm => matchProperty(rm.propertyId));
+            const filteredOpenings = openings.filter(o => matchProperty(o.propertyId));
+            const filteredRecons = recons.filter(rc => matchProperty(rc.propertyId));
+            const filteredIssues = issues.filter(i => matchProperty(i.propertyId));
+            const filteredIssueReturns = issueReturns.filter(ir => matchProperty(ir.propertyId));
 
-          {activeTab === "pr" && (
-            <PRModule 
-              prs={prs} setPrs={setPrs}
-              items={items}
-              stores={stores}
-              departments={departments}
-              currentUser={currentUser}
-              onConvertToPO={handleConvertToPO}
-              onViewAudit={handleOpenAuditTimeline}
-            />
-          )}
+            return (
+              <>
+                {activeTab === "dashboard" && (
+                  <Dashboard 
+                    prs={filteredPrs}
+                    pos={filteredPos}
+                    mrs={filteredMrs}
+                    grns={filteredGrns}
+                    returns={filteredReturns}
+                    rateMods={filteredRateMods}
+                    openings={filteredOpenings}
+                    reconciliations={filteredRecons}
+                    balances={balances}
+                    items={items}
+                    stores={stores}
+                    config={config}
+                    setConfig={setConfig}
+                    currentUser={currentUser}
+                    setCurrentUser={setCurrentUser}
+                    users={users}
+                    onApproveTransaction={handleApproveTransaction}
+                    onViewAudit={handleOpenAuditTimeline}
+                    onOpenDayClosure={() => setDayClosureModalOpen(true)}
+                  />
+                )}
 
-          {activeTab === "po" && (
-            <POModule 
-              pos={pos} setPos={setPos}
-              items={items}
-              stores={stores}
-              suppliers={suppliers}
-              currentUser={currentUser}
-              onViewAudit={handleOpenAuditTimeline}
-            />
-          )}
+                {activeTab === "masters" && (
+                  <MasterDataModule 
+                    items={items} setItems={setItems}
+                    stores={stores} setStores={setStores}
+                    departments={departments}
+                    suppliers={suppliers}
+                    users={users}
+                  />
+                )}
 
-          {activeTab === "mr" && (
-            <MRModule 
-              mrs={mrs} setMrs={setMrs}
-              items={items}
-              stores={stores}
-              departments={departments}
-              currentUser={currentUser}
-              onViewAudit={handleOpenAuditTimeline}
-            />
-          )}
+                {activeTab === "pr" && (
+                  <PRModule 
+                    prs={filteredPrs} setPrs={setPrs}
+                    items={items}
+                    stores={stores}
+                    departments={departments}
+                    currentUser={currentUser}
+                    onConvertToPO={handleConvertToPO}
+                    onViewAudit={handleOpenAuditTimeline}
+                  />
+                )}
 
-          {activeTab === "grn" && (
-            <GRNModule 
-              grns={grns} setGrns={setGrns}
-              pos={pos} setPos={setPos}
-              items={items}
-              stores={stores}
-              suppliers={suppliers}
-              currentUser={currentUser}
-              config={config}
-              onPostStockLedger={handlePostStockLedger}
-            />
-          )}
+                {activeTab === "po" && (
+                  <POModule 
+                    pos={filteredPos} setPos={setPos}
+                    items={items}
+                    stores={stores}
+                    suppliers={suppliers}
+                    currentUser={currentUser}
+                    onViewAudit={handleOpenAuditTimeline}
+                  />
+                )}
 
-          {activeTab === "returns" && (
-            <ReturnsRateModModule 
-              returns={returns} setReturns={setReturns}
-              rateMods={rateMods} setRateMods={setRateMods}
-              grns={grns} setGrns={setGrns}
-              items={items}
-              stores={stores}
-              suppliers={suppliers}
-              balances={balances}
-              currentUser={currentUser}
-              onPostStockLedger={handlePostStockLedger}
-            />
-          )}
+                {activeTab === "mr" && (
+                  <MRModule 
+                    mrs={filteredMrs} setMrs={setMrs}
+                    items={items}
+                    stores={stores}
+                    departments={departments}
+                    currentUser={currentUser}
+                    onViewAudit={handleOpenAuditTimeline}
+                  />
+                )}
 
-          {activeTab === "issues" && (
-            <MaterialIssueModule 
-              issues={issues} setIssues={setIssues}
-              issueReturns={issueReturns} setIssueReturns={setIssueReturns}
-              mrs={mrs} setMrs={setMrs}
-              items={items}
-              stores={stores}
-              departments={departments}
-              balances={balances}
-              currentUser={currentUser}
-              onPostStockLedger={handlePostStockLedger}
-            />
-          )}
+                {activeTab === "grn" && (
+                  <GRNModule 
+                    grns={filteredGrns} setGrns={setGrns}
+                    pos={filteredPos} setPos={setPos}
+                    items={items}
+                    stores={stores}
+                    suppliers={suppliers}
+                    currentUser={currentUser}
+                    config={config}
+                    onPostStockLedger={handlePostStockLedger}
+                  />
+                )}
 
-          {activeTab === "reports" && (
-            <ReportsModule mrs={mrs} grns={grns} issues={issues} departments={departments} />
-          )}
+                {activeTab === "returns" && (
+                  <ReturnsRateModModule 
+                    returns={filteredReturns} setReturns={setReturns}
+                    rateMods={filteredRateMods} setRateMods={setRateMods}
+                    grns={filteredGrns} setGrns={setGrns}
+                    items={items}
+                    stores={stores}
+                    suppliers={suppliers}
+                    balances={balances}
+                    currentUser={currentUser}
+                    onPostStockLedger={handlePostStockLedger}
+                  />
+                )}
 
-          {activeTab === "reprint" && (
-            <ReprintCenterModule
-              mrs={mrs}
-              grns={grns}
-              issues={issues}
-              issueReturns={issueReturns}
-              items={items}
-              stores={stores}
-              departments={departments}
-              suppliers={suppliers}
-              currentUser={currentUser}
-            />
-          )}
+                {activeTab === "issues" && (
+                  <MaterialIssueModule 
+                    issues={filteredIssues} setIssues={setIssues}
+                    issueReturns={filteredIssueReturns} setIssueReturns={setIssueReturns}
+                    mrs={filteredMrs} setMrs={setMrs}
+                    items={items}
+                    stores={stores}
+                    departments={departments}
+                    balances={balances}
+                    currentUser={currentUser}
+                    onPostStockLedger={handlePostStockLedger}
+                  />
+                )}
 
-          {activeTab === "recons" && (
-            <StoreOpeningReconModule 
-              openings={openings} setOpenings={setOpenings}
-              recons={recons} setRecons={setRecons}
-              items={items}
-              stores={stores}
-              balances={balances}
-              currentUser={currentUser}
-              onPostStockLedger={handlePostStockLedger}
-            />
-          )}
+                {activeTab === "reports" && (
+                  <ReportsModule mrs={filteredMrs} grns={filteredGrns} issues={filteredIssues} departments={departments} />
+                )}
 
-          {activeTab === "ledger" && (
-            <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs space-y-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">Stock Card Ledger Summary & Report</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Real-time consolidated balance valuation, transaction auditing, and inventory cost statements.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      // Resolve filtered lists for dynamic export calculation
+                {activeTab === "reprint" && (
+                  <ReprintCenterModule
+                    mrs={filteredMrs}
+                    grns={filteredGrns}
+                    issues={filteredIssues}
+                    issueReturns={filteredIssueReturns}
+                    items={items}
+                    stores={stores}
+                    departments={departments}
+                    suppliers={suppliers}
+                    currentUser={currentUser}
+                  />
+                )}
+
+                {activeTab === "recons" && (
+                  <StoreOpeningReconModule 
+                    openings={filteredOpenings} setOpenings={setOpenings}
+                    recons={filteredRecons} setRecons={setRecons}
+                    items={items}
+                    stores={stores}
+                    currentUser={currentUser}
+                    onPostStockLedger={handlePostStockLedger}
+                    balances={balances}
+                  />
+                )}
+
+                {activeTab === "ledger" && (
+                  <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                      <div>
+                        <h2 className="text-base font-bold text-slate-800">Stock Card Ledger Summary & Report</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">Real-time consolidated balance valuation, transaction auditing, and inventory cost statements.</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const filteredBalances = balances.filter(bal => {
+                              const itemObj = items.find(i => i.id === bal.itemId);
+                              const matchesSearch = !ledgerSearch || 
+                                itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+                                itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
+                              const matchesStore = ledgerStoreFilter === "all" || bal.storeId === ledgerStoreFilter;
+                              const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
+                              return matchesSearch && matchesStore && matchesCategory;
+                            });
+
+                            const headers = ["Store Location", "Item SKU", "Item Code", "Current On Hand Qty", "Weighted MA Cost ($)", "Valuation ($)"];
+                            const rows = filteredBalances.map(bal => {
+                              const storeObj = stores.find(s => s.id === bal.storeId);
+                              const itemObj = items.find(i => i.id === bal.itemId);
+                              const valuation = bal.qtyOnHand * bal.movingAverageCost;
+                              return [
+                                storeObj?.name || "",
+                                itemObj?.name || "",
+                                itemObj?.code || "",
+                                bal.qtyOnHand,
+                                bal.movingAverageCost.toFixed(2),
+                                valuation.toFixed(2)
+                              ];
+                            });
+                            
+                            const csvContent = "data:text/csv;charset=utf-8," 
+                              + [headers.join(","), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
+                            const encodedUri = encodeURI(csvContent);
+                            const link = document.createElement("a");
+                            link.setAttribute("href", encodedUri);
+                            link.setAttribute("download", `stock_ledger_summary_report_${Date.now()}.csv`);
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="px-3 py-1.5 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                        >
+                          Export CSV
+                        </button>
+                        <button
+                          onClick={() => window.print()}
+                          className="px-3 py-1.5 text-xs font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all cursor-pointer"
+                        >
+                          Print Report
+                        </button>
+                        <button
+                          onClick={runStockLedgerIntegrityCheck}
+                          className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          Audit Ledger Balance Integrity
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filtering Toolbar */}
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Search SKU Item</label>
+                        <input
+                          type="text"
+                          value={ledgerSearch}
+                          onChange={(e) => setLedgerSearch(e.target.value)}
+                          placeholder="Search by SKU name or code..."
+                          className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Store Location</label>
+                        <select
+                          value={ledgerStoreFilter}
+                          onChange={(e) => setLedgerStoreFilter(e.target.value)}
+                          className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        >
+                          <option value="all">All Stores & Warehouses</option>
+                          {stores.map(st => (
+                            <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Item Category</label>
+                        <select
+                          value={ledgerItemFilter}
+                          onChange={(e) => setLedgerItemFilter(e.target.value)}
+                          className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                        >
+                          <option value="all">All Categories</option>
+                          <option value="Dry Stores">Dry Stores / Groceries</option>
+                          <option value="Cold Storage">Cold Storage / Meat & Dairy</option>
+                          <option value="Beverage Store">Beverage / Wine Store</option>
+                          <option value="General Supplies">General / Kitchen Supplies</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* INTERACTIVE WEIGHTED AVERAGE COSTING ANALYZER & POSTING OPTION */}
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 px-2 text-[10px] uppercase font-extrabold bg-purple-100 text-purple-700 rounded-sm">COSTING ENGINE TOOL</span>
+                          <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Weighted Average Cost (WAC) Recalculator & Posting Option</h3>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setWacSimulatorOpen(!wacSimulatorOpen);
+                            if (!wacItemId && items.length > 0) setWacItemId(items[0].id);
+                            if (!wacStoreId && stores.length > 0) setWacStoreId(stores[0].id);
+                          }}
+                          className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-all focus:outline-none cursor-pointer"
+                        >
+                          {wacSimulatorOpen ? "Collapse Option Calculator" : "Configure Calculation & Post WAC"}
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Select any inventory item and run simulated or live Weighted Average Cost (WAC) calculations for incoming/outgoing stock transactions (Material Receipts, Issues, Returns, and Reconciliations).
+                      </p>
+
+                      {wacSimulatorOpen && (
+                        <div className="bg-white p-4 rounded-lg border border-slate-200/60 shadow-2xs space-y-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                          <div className="lg:col-span-4 space-y-3">
+                            <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block border-b border-purple-50 pb-1">1. Transaction Parameters</span>
+                            
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target Inventory Item</label>
+                              <select
+                                value={wacItemId}
+                                onChange={(e) => setWacItemId(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                              >
+                                {items.map(it => (
+                                  <option key={it.id} value={it.id}>{it.name} ({it.code})</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Store / Warehouse Location</label>
+                              <select
+                                value={wacStoreId}
+                                onChange={(e) => setWacStoreId(e.target.value)}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                              >
+                                {stores.map(st => (
+                                  <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Calculation Option (Transaction Type)</label>
+                              <select
+                                value={wacTxType}
+                                onChange={(e) => {
+                                  setWacTxType(e.target.value);
+                                  if (e.target.value === "Issue" || e.target.value === "Receipt Return") {
+                                    setWacRate(0);
+                                  } else {
+                                    setWacRate(10);
+                                  }
+                                }}
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
+                              >
+                                <option value="Receipt">Material Receipt (GRN) [Inward]</option>
+                                <option value="Issue">Material Issue [Outward]</option>
+                                <option value="Receipt Return">Material Receipt Return [Outward]</option>
+                                <option value="Issue Return">Issue Return [Inward]</option>
+                                <option value="Reconciliation">Reconciliation Variance [Adjust]</option>
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Trans Qty</label>
+                                <input
+                                  type="number"
+                                  value={wacQty}
+                                  onChange={(e) => setWacQty(parseFloat(e.target.value) || 0)}
+                                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                                  {wacTxType === "Issue" || wacTxType === "Receipt Return" ? "Posting Cost ($) (Auto)" : "Trans Rate ($/unit)"}
+                                </label>
+                                <input
+                                  type="number"
+                                  disabled={wacTxType === "Issue" || wacTxType === "Receipt Return"}
+                                  value={wacRate}
+                                  onChange={(e) => setWacRate(parseFloat(e.target.value) || 0)}
+                                  className="w-full p-2 bg-slate-50 disabled:opacity-60 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Batch / Lot / Doc Reference</label>
+                              <input
+                                type="text"
+                                value={wacBatch}
+                                onChange={(e) => setWacBatch(e.target.value)}
+                                placeholder="e.g. LOT-WAC-01"
+                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 font-semibold focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const selectedItemId = wacItemId || (items[0]?.id || "");
+                            const selectedStoreId = wacStoreId || (stores[0]?.id || "");
+                            const selectedItem = items.find(i => i.id === selectedItemId);
+                            const selectedStore = stores.find(s => s.id === selectedStoreId);
+                            const currentBal = balances.find(b => b.storeId === selectedStoreId && b.itemId === selectedItemId) || {
+                              qtyOnHand: 0,
+                              movingAverageCost: selectedItem?.standardRate || 5.0
+                            };
+
+                            const priorQty = currentBal.qtyOnHand;
+                            const priorRate = currentBal.movingAverageCost;
+                            const priorVal = priorQty * priorRate;
+
+                            let transQty = wacQty;
+                            let transRate = wacRate;
+                            let qtySign = 1;
+                            let formulaDesc = "";
+                            let formulaMath = "";
+
+                            if (wacTxType === "Receipt") {
+                              qtySign = 1;
+                              transRate = wacRate;
+                              formulaDesc = "Inward Material Receipt adds stock quantity and value. The cost is averaged out.";
+                              formulaMath = `[(${priorQty} units × $${priorRate.toFixed(2)}) + (${transQty} units × $${transRate.toFixed(2)})] ÷ (${priorQty} + ${transQty})`;
+                            } else if (wacTxType === "Issue") {
+                              qtySign = -1;
+                              transRate = priorRate;
+                              formulaDesc = "Material Issue releases stock at the current Weighted Average Cost. The unit cost remains unchanged.";
+                              formulaMath = `Cost remains locked at Current Average: $${priorRate.toFixed(2)}`;
+                            } else if (wacTxType === "Receipt Return") {
+                              qtySign = -1;
+                              transRate = priorRate;
+                              formulaDesc = "Material Receipt Return reduces stock value at current average cost.";
+                              formulaMath = `Cost remains locked at Current Average: $${priorRate.toFixed(2)}`;
+                            } else if (wacTxType === "Issue Return") {
+                              qtySign = 1;
+                              transRate = wacRate;
+                              formulaDesc = "Issue Return restocks returned materials, recalculating the average based on incoming value.";
+                              formulaMath = `[(${priorQty} units × $${priorRate.toFixed(2)}) + (${transQty} units × $${transRate.toFixed(2)})] ÷ (${priorQty} + ${transQty})`;
+                            } else if (wacTxType === "Reconciliation") {
+                              qtySign = transQty >= 0 ? 1 : -1;
+                              transQty = Math.abs(transQty);
+                              transRate = priorRate;
+                              formulaDesc = "Physical Reconciliation variance modifies the total quantity at current average cost to align books.";
+                              formulaMath = `Adjusts book count at current average: $${priorRate.toFixed(2)}`;
+                            }
+
+                            const valDelta = qtySign * transQty * transRate;
+                            const resultingQty = Math.max(0, priorQty + (qtySign * transQty));
+                            const resultingVal = Math.max(0, priorVal + valDelta);
+                            const resultingRate = resultingQty > 0 ? (resultingVal / resultingQty) : priorRate;
+
+                            return (
+                              <div className="lg:col-span-8 bg-slate-50 rounded-lg p-4 border border-slate-200/50 space-y-4">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200/50 pb-1">2. Dynamic WAC Valuation Simulation</span>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div className="bg-white p-3 rounded-lg border border-slate-200/40">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Prior Balance</span>
+                                    <div className="mt-1 flex flex-col">
+                                      <span className="text-sm font-extrabold text-slate-700">{priorQty} {selectedItem?.unit || "units"}</span>
+                                      <span className="text-[11px] font-bold text-slate-500">Avg Cost: ${priorRate.toFixed(2)}</span>
+                                      <span className="text-[10px] text-slate-400">Total Value: ${priorVal.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-white p-3 rounded-lg border border-slate-200/40">
+                                    <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider block">Transaction Impact</span>
+                                    <div className="mt-1 flex flex-col">
+                                      <span className={`text-sm font-extrabold ${qtySign >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                        {qtySign >= 0 ? "+" : "-"}{transQty} {selectedItem?.unit || "units"}
+                                      </span>
+                                      <span className="text-[11px] font-bold text-slate-500">Posting Cost: ${transRate.toFixed(2)}</span>
+                                      <span className="text-[10px] text-slate-400">Value Delta: ${valDelta.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-purple-600 p-3 rounded-lg text-white">
+                                    <span className="text-[9px] font-bold text-purple-200 uppercase tracking-wider block">Resulting Valuation (WAC)</span>
+                                    <div className="mt-1 flex flex-col">
+                                      <span className="text-sm font-extrabold">{resultingQty} {selectedItem?.unit || "units"}</span>
+                                      <span className="text-[11px] font-bold text-purple-100">Avg Cost: ${resultingRate.toFixed(2)}</span>
+                                      <span className="text-[10px] text-purple-200">Total Asset: ${resultingVal.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-white p-3 rounded-lg border border-purple-100 space-y-2">
+                                  <div>
+                                    <span className="text-[10px] uppercase font-bold text-purple-600 block">Calculation Method Explanation</span>
+                                    <p className="text-[11px] text-slate-600 font-medium mt-0.5">{formulaDesc}</p>
+                                  </div>
+                                  <div className="bg-slate-50 p-2 rounded text-xs font-mono font-bold text-slate-700">
+                                    WAC Formula = {formulaMath}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-1">
+                                    <span>Computed Weighted Rate:</span>
+                                    <span className="text-slate-800 font-bold bg-slate-100 px-1.5 py-0.2 rounded">${resultingRate.toFixed(4)} per {selectedItem?.unit || "unit"}</span>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 flex items-center justify-between gap-4">
+                                  <p className="text-[11px] text-slate-400 font-medium">
+                                    Committing this transaction updates live property balances and adds a permanent stock card audit entry.
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const qtyChange = qtySign * transQty;
+                                      handlePostStockLedger(
+                                        selectedStoreId,
+                                        selectedItemId,
+                                        qtyChange,
+                                        transRate,
+                                        `WAC ${wacTxType}`,
+                                        wacBatch || "DOC-WAC-SIM",
+                                        wacBatch || "LOT-WAC"
+                                      );
+                                      alert(`Successfully posted Weighted Average adjustment for ${selectedItem?.name} in store ${selectedStore?.name}. New dynamic average cost is $${resultingRate.toFixed(2)}.`);
+                                    }}
+                                    className="px-4 py-2 bg-purple-600 text-white font-extrabold text-xs rounded-lg hover:bg-purple-700 shadow-xs hover:shadow-sm cursor-pointer transition-all shrink-0"
+                                  >
+                                    Apply & Post to Live Stock Ledger
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+
+                    {(() => {
                       const filteredBalances = balances.filter(bal => {
                         const itemObj = items.find(i => i.id === bal.itemId);
                         const matchesSearch = !ledgerSearch || 
@@ -989,507 +1361,157 @@ export default function App() {
                         return matchesSearch && matchesStore && matchesCategory;
                       });
 
-                      const headers = ["Store Location", "Item SKU", "Item Code", "Current On Hand Qty", "Weighted MA Cost ($)", "Valuation ($)"];
-                      const rows = filteredBalances.map(bal => {
-                        const storeObj = stores.find(s => s.id === bal.storeId);
-                        const itemObj = items.find(i => i.id === bal.itemId);
-                        const valuation = bal.qtyOnHand * bal.movingAverageCost;
-                        return [
-                          storeObj?.name || "",
-                          itemObj?.name || "",
-                          itemObj?.code || "",
-                          bal.qtyOnHand,
-                          bal.movingAverageCost.toFixed(2),
-                          valuation.toFixed(2)
-                        ];
+                      const filteredLedger = ledger.filter(entry => {
+                        const itemObj = items.find(i => i.id === entry.itemId);
+                        const matchesSearch = !ledgerSearch || 
+                          itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+                          itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
+                        const matchesStore = ledgerStoreFilter === "all" || entry.storeId === ledgerStoreFilter;
+                        const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
+                        return matchesSearch && matchesStore && matchesCategory;
                       });
-                      
-                      const csvContent = "data:text/csv;charset=utf-8," 
-                        + [headers.join(","), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
-                      const encodedUri = encodeURI(csvContent);
-                      const link = document.createElement("a");
-                      link.setAttribute("href", encodedUri);
-                      link.setAttribute("download", `stock_ledger_summary_report_${Date.now()}.csv`);
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    }}
-                    className="px-3 py-1.5 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
-                  >
-                    Export CSV
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="px-3 py-1.5 text-xs font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all cursor-pointer"
-                  >
-                    Print Report
-                  </button>
-                  <button
-                    onClick={runStockLedgerIntegrityCheck}
-                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    Audit Ledger Balance Integrity
-                  </button>
-                </div>
-              </div>
 
-              {/* Filtering Toolbar */}
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Search SKU Item</label>
-                  <input
-                    type="text"
-                    value={ledgerSearch}
-                    onChange={(e) => setLedgerSearch(e.target.value)}
-                    placeholder="Search by SKU name or code..."
-                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Store Location</label>
-                  <select
-                    value={ledgerStoreFilter}
-                    onChange={(e) => setLedgerStoreFilter(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  >
-                    <option value="all">All Stores & Warehouses</option>
-                    {stores.map(st => (
-                      <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Item Category</label>
-                  <select
-                    value={ledgerItemFilter}
-                    onChange={(e) => setLedgerItemFilter(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="Dry Stores">Dry Stores / Groceries</option>
-                    <option value="Cold Storage">Cold Storage / Meat & Dairy</option>
-                    <option value="Beverage Store">Beverage / Wine Store</option>
-                    <option value="General Supplies">General / Kitchen Supplies</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* INTERACTIVE WEIGHTED AVERAGE COSTING ANALYZER & POSTING OPTION */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1 px-2 text-[10px] uppercase font-extrabold bg-purple-100 text-purple-700 rounded-sm">COSTING ENGINE TOOL</span>
-                    <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Weighted Average Cost (WAC) Recalculator & Posting Option</h3>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setWacSimulatorOpen(!wacSimulatorOpen);
-                      // Pre-populate with first available values if blank
-                      if (!wacItemId && items.length > 0) setWacItemId(items[0].id);
-                      if (!wacStoreId && stores.length > 0) setWacStoreId(stores[0].id);
-                    }}
-                    className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-all focus:outline-none cursor-pointer"
-                  >
-                    {wacSimulatorOpen ? "Collapse Option Calculator" : "Configure Calculation & Post WAC"}
-                  </button>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Select any inventory item and run simulated or live Weighted Average Cost (WAC) calculations for incoming/outgoing stock transactions (Material Receipts, Issues, Returns, and Reconciliations).
-                </p>
-
-                {wacSimulatorOpen && (
-                  <div className="bg-white p-4 rounded-lg border border-slate-200/60 shadow-2xs space-y-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                    {/* Inputs panel */}
-                    <div className="lg:col-span-4 space-y-3">
-                      <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block border-b border-purple-50 pb-1">1. Transaction Parameters</span>
-                      
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target Inventory Item</label>
-                        <select
-                          value={wacItemId}
-                          onChange={(e) => setWacItemId(e.target.value)}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
-                        >
-                          {items.map(it => (
-                            <option key={it.id} value={it.id}>{it.name} ({it.code})</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Store / Warehouse Location</label>
-                        <select
-                          value={wacStoreId}
-                          onChange={(e) => setWacStoreId(e.target.value)}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
-                        >
-                          {stores.map(st => (
-                            <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Calculation Option (Transaction Type)</label>
-                        <select
-                          value={wacTxType}
-                          onChange={(e) => {
-                            setWacTxType(e.target.value);
-                            // Set typical rates automatically for intuitive demo
-                            if (e.target.value === "Issue" || e.target.value === "Receipt Return") {
-                              setWacRate(0); // issues and receipt returns usually price automatically at current average
-                            } else {
-                              setWacRate(10);
-                            }
-                          }}
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
-                        >
-                          <option value="Receipt">Material Receipt (GRN) [Inward]</option>
-                          <option value="Issue">Material Issue [Outward]</option>
-                          <option value="Receipt Return">Material Receipt Return [Outward]</option>
-                          <option value="Issue Return">Issue Return [Inward]</option>
-                          <option value="Reconciliation">Reconciliation Variance [Adjust]</option>
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Trans Qty</label>
-                          <input
-                            type="number"
-                            value={wacQty}
-                            onChange={(e) => setWacQty(parseFloat(e.target.value) || 0)}
-                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                            {wacTxType === "Issue" || wacTxType === "Receipt Return" ? "Posting Cost ($) (Auto)" : "Trans Rate ($/unit)"}
-                          </label>
-                          <input
-                            type="number"
-                            disabled={wacTxType === "Issue" || wacTxType === "Receipt Return"}
-                            value={wacRate}
-                            onChange={(e) => setWacRate(parseFloat(e.target.value) || 0)}
-                            className="w-full p-2 bg-slate-50 disabled:opacity-60 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Batch / Lot / Doc Reference</label>
-                        <input
-                          type="text"
-                          value={wacBatch}
-                          onChange={(e) => setWacBatch(e.target.value)}
-                          placeholder="e.g. LOT-WAC-01"
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-700 font-semibold focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Math & Result simulation panel */}
-                    {(() => {
-                      const selectedItemId = wacItemId || (items[0]?.id || "");
-                      const selectedStoreId = wacStoreId || (stores[0]?.id || "");
-                      const selectedItem = items.find(i => i.id === selectedItemId);
-                      const selectedStore = stores.find(s => s.id === selectedStoreId);
-                      const currentBal = balances.find(b => b.storeId === selectedStoreId && b.itemId === selectedItemId) || {
-                        qtyOnHand: 0,
-                        movingAverageCost: selectedItem?.standardRate || 5.0
-                      };
-
-                      const priorQty = currentBal.qtyOnHand;
-                      const priorRate = currentBal.movingAverageCost;
-                      const priorVal = priorQty * priorRate;
-
-                      // WAC logic
-                      let transQty = wacQty;
-                      let transRate = wacRate;
-                      let qtySign = 1;
-                      let formulaDesc = "";
-                      let formulaMath = "";
-
-                      if (wacTxType === "Receipt") {
-                        qtySign = 1;
-                        transRate = wacRate;
-                        formulaDesc = "Inward Material Receipt adds stock quantity and value. The cost is averaged out.";
-                        formulaMath = `[(${priorQty} units × $${priorRate.toFixed(2)}) + (${transQty} units × $${transRate.toFixed(2)})] ÷ (${priorQty} + ${transQty})`;
-                      } else if (wacTxType === "Issue") {
-                        qtySign = -1;
-                        transRate = priorRate; // Issues always occur at the current average rate
-                        formulaDesc = "Material Issue releases stock at the current Weighted Average Cost. The unit cost remains unchanged.";
-                        formulaMath = `Cost remains locked at Current Average: $${priorRate.toFixed(2)}`;
-                      } else if (wacTxType === "Receipt Return") {
-                        qtySign = -1;
-                        transRate = priorRate; // Receipt returns deplete stock at original/current average
-                        formulaDesc = "Material Receipt Return reduces stock value at current average cost.";
-                        formulaMath = `Cost remains locked at Current Average: $${priorRate.toFixed(2)}`;
-                      } else if (wacTxType === "Issue Return") {
-                        qtySign = 1;
-                        transRate = wacRate; // Put back at the value it was issued
-                        formulaDesc = "Issue Return restocks returned materials, recalculating the average based on incoming value.";
-                        formulaMath = `[(${priorQty} units × $${priorRate.toFixed(2)}) + (${transQty} units × $${transRate.toFixed(2)})] ÷ (${priorQty} + ${transQty})`;
-                      } else if (wacTxType === "Reconciliation") {
-                        // Variance can be positive (Stock In) or negative (Stock Out)
-                        qtySign = transQty >= 0 ? 1 : -1;
-                        transQty = Math.abs(transQty);
-                        transRate = priorRate; // Adjustments are valued at the current average cost
-                        formulaDesc = "Physical Reconciliation variance modifies the total quantity at current average cost to align books.";
-                        formulaMath = `Adjusts book count at current average: $${priorRate.toFixed(2)}`;
-                      }
-
-                      const valDelta = qtySign * transQty * transRate;
-                      const resultingQty = Math.max(0, priorQty + (qtySign * transQty));
-                      const resultingVal = Math.max(0, priorVal + valDelta);
-                      const resultingRate = resultingQty > 0 ? (resultingVal / resultingQty) : priorRate;
+                      const totalSKUs = filteredBalances.length;
+                      const totalStockQty = filteredBalances.reduce((sum, b) => sum + b.qtyOnHand, 0);
+                      const totalAssetVal = filteredBalances.reduce((sum, b) => sum + (b.qtyOnHand * b.movingAverageCost), 0);
+                      const avgItemCost = totalSKUs > 0 ? (filteredBalances.reduce((sum, b) => sum + b.movingAverageCost, 0) / totalSKUs) : 0;
 
                       return (
-                        <div className="lg:col-span-8 bg-slate-50 rounded-lg p-4 border border-slate-200/50 space-y-4">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-200/50 pb-1">2. Dynamic WAC Valuation Simulation</span>
-
-                          {/* Stat Grid comparing prior vs resulting */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="bg-white p-3 rounded-lg border border-slate-200/40">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Prior Balance</span>
-                              <div className="mt-1 flex flex-col">
-                                <span className="text-sm font-extrabold text-slate-700">{priorQty} {selectedItem?.unit || "units"}</span>
-                                <span className="text-[11px] font-bold text-slate-500">Avg Cost: ${priorRate.toFixed(2)}</span>
-                                <span className="text-[10px] text-slate-400">Total Value: ${priorVal.toFixed(2)}</span>
+                        <>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filtered Valuation</span>
+                              <div className="mt-2 flex items-baseline gap-1.5">
+                                <span className="text-xl font-extrabold text-slate-800">${totalAssetVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.2 rounded-full">Asset Value</span>
                               </div>
                             </div>
 
-                            <div className="bg-white p-3 rounded-lg border border-slate-200/40">
-                              <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider block">Transaction Impact</span>
-                              <div className="mt-1 flex flex-col">
-                                <span className={`text-sm font-extrabold ${qtySign >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                                  {qtySign >= 0 ? "+" : "-"}{transQty} {selectedItem?.unit || "units"}
-                                </span>
-                                <span className="text-[11px] font-bold text-slate-500">Posting Cost: ${transRate.toFixed(2)}</span>
-                                <span className="text-[10px] text-slate-400">Value Delta: ${valDelta.toFixed(2)}</span>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consolidated SKUs</span>
+                              <div className="mt-2 flex items-baseline gap-1.5">
+                                <span className="text-xl font-extrabold text-slate-800">{totalSKUs}</span>
+                                <span className="text-[10px] font-semibold text-slate-500">Unique Cards</span>
                               </div>
                             </div>
 
-                            <div className="bg-purple-600 p-3 rounded-lg text-white">
-                              <span className="text-[9px] font-bold text-purple-200 uppercase tracking-wider block">Resulting Valuation (WAC)</span>
-                              <div className="mt-1 flex flex-col">
-                                <span className="text-sm font-extrabold">{resultingQty} {selectedItem?.unit || "units"}</span>
-                                <span className="text-[11px] font-bold text-purple-100">Avg Cost: ${resultingRate.toFixed(2)}</span>
-                                <span className="text-[10px] text-purple-200">Total Asset: ${resultingVal.toFixed(2)}</span>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">On-Hand Balance</span>
+                              <div className="mt-2 flex items-baseline gap-1.5">
+                                <span className="text-xl font-extrabold text-slate-800">{totalStockQty}</span>
+                                <span className="text-[10px] font-semibold text-slate-500">Total Units</span>
+                              </div>
+                            </div>
+
+                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg. Material Cost</span>
+                              <div className="mt-2 flex items-baseline gap-1.5">
+                                <span className="text-xl font-extrabold text-slate-800">${avgItemCost.toFixed(2)}</span>
+                                <span className="text-[10px] font-semibold text-slate-500">Weighted Average</span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Costing calculation explanation box */}
-                          <div className="bg-white p-3 rounded-lg border border-purple-100 space-y-2">
-                            <div>
-                              <span className="text-[10px] uppercase font-bold text-purple-600 block">Calculation Method Explanation</span>
-                              <p className="text-[11px] text-slate-600 font-medium mt-0.5">{formulaDesc}</p>
-                            </div>
-                            <div className="bg-slate-50 p-2 rounded text-xs font-mono font-bold text-slate-700">
-                              WAC Formula = {formulaMath}
-                            </div>
-                            <div className="text-[11px] text-slate-500 font-semibold flex items-center gap-1">
-                              <span>Computed Weighted Rate:</span>
-                              <span className="text-slate-800 font-bold bg-slate-100 px-1.5 py-0.2 rounded">${resultingRate.toFixed(4)} per {selectedItem?.unit || "unit"}</span>
+                          <div className="space-y-3">
+                            <span className="text-xs font-bold text-slate-700 block">Active Stock Cards ({filteredBalances.length})</span>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {filteredBalances.length === 0 ? (
+                                <div className="col-span-full p-8 text-center text-slate-400 bg-slate-50 border border-slate-100 rounded-xl">
+                                  No active stock card records match the chosen search parameters.
+                                </div>
+                              ) : (
+                                filteredBalances.map((bal, idx) => {
+                                  const itemObj = items.find(i => i.id === bal.itemId);
+                                  const storeObj = stores.find(s => s.id === bal.storeId);
+                                  const valuation = bal.qtyOnHand * bal.movingAverageCost;
+                                  return (
+                                    <div key={`${bal.storeId}-${bal.itemId}-${idx}`} className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2">
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <p className="text-xs font-bold text-slate-800">{itemObj?.name}</p>
+                                          <p className="text-[10px] text-slate-400 font-medium">Store: {storeObj?.name}</p>
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 border border-slate-200 rounded">
+                                          {bal.qtyOnHand} {itemObj?.unit}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-slate-200/40">
+                                        <span className="text-slate-400">Weighted MA Cost:</span>
+                                        <span className="font-bold text-slate-700">${bal.movingAverageCost.toFixed(2)}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[11px]">
+                                        <span className="text-slate-400">Total Asset Value:</span>
+                                        <span className="font-extrabold text-slate-800">${valuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      </div>
+                                      <div className="text-[9px] text-slate-400 font-semibold bg-white p-1 rounded border border-slate-200/50 mt-1">
+                                        Batches: {bal.fifoQueue.map(bb => `${bb.batch || 'FIFO'} (${bb.qty} @ $${bb.rate.toFixed(2)})`).join(", ") || "None"}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
                             </div>
                           </div>
 
-                          {/* Post option execution container */}
-                          <div className="pt-2 flex items-center justify-between gap-4">
-                            <p className="text-[11px] text-slate-400 font-medium">
-                              Committing this transaction updates live property balances and adds a permanent stock card audit entry.
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Execute posting
-                                const qtyChange = qtySign * transQty;
-                                handlePostStockLedger(
-                                  selectedStoreId,
-                                  selectedItemId,
-                                  qtyChange,
-                                  transRate,
-                                  `WAC ${wacTxType}`,
-                                  wacBatch || "DOC-WAC-SIM",
-                                  wacBatch || "LOT-WAC"
-                                );
-                                alert(`Successfully posted Weighted Average adjustment for ${selectedItem?.name} in store ${selectedStore?.name}. New dynamic average cost is $${resultingRate.toFixed(2)}.`);
-                              }}
-                              className="px-4 py-2 bg-purple-600 text-white font-extrabold text-xs rounded-lg hover:bg-purple-700 shadow-xs hover:shadow-sm cursor-pointer transition-all shrink-0"
-                            >
-                              Apply & Post to Live Stock Ledger
-                            </button>
+                          <div className="space-y-3 pt-4 border-t border-slate-100">
+                            <span className="text-xs font-bold text-slate-700 block">Filtered Stock Ledger History ({filteredLedger.length} Records)</span>
+                            <div className="overflow-x-auto rounded-lg border border-slate-200/60">
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-200/60">
+                                    <th className="p-3">Timestamp</th>
+                                    <th className="p-3">Store Location</th>
+                                    <th className="p-3">Item Name</th>
+                                    <th className="p-3">Transaction</th>
+                                    <th className="p-3">Doc Ref</th>
+                                    <th className="p-3">Batch/Lot No</th>
+                                    <th className="p-3">Qty Delta</th>
+                                    <th className="p-3">Posting Cost</th>
+                                    <th className="p-3">Balance After</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
+                                  {filteredLedger.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={9} className="p-4 text-center text-slate-400">No stock entries registered matching the current filters.</td>
+                                    </tr>
+                                  ) : (
+                                    filteredLedger.map(entry => {
+                                      const storeObj = stores.find(s => s.id === entry.storeId);
+                                      const itemObj = items.find(i => i.id === entry.itemId);
+                                      return (
+                                        <tr key={entry.id} className="hover:bg-slate-50/50">
+                                          <td className="p-3 text-[10px] text-slate-400">{new Date(entry.timestamp).toLocaleString()}</td>
+                                          <td className="p-3 font-semibold text-slate-700">{storeObj?.name}</td>
+                                          <td className="p-3 font-bold text-slate-800">{itemObj?.name}</td>
+                                          <td className="p-3 text-slate-500 font-mono text-[11px]">{entry.transactionType}</td>
+                                          <td className="p-3 font-bold text-slate-600">{entry.transactionId}</td>
+                                          <td className="p-3 font-mono text-[11px] text-slate-400">{entry.batchLotNumber || "--"}</td>
+                                          <td className={`p-3 font-extrabold ${entry.qtyChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                            {entry.qtyChange >= 0 ? "+" : ""}{entry.qtyChange}
+                                          </td>
+                                          <td className="p-3 font-semibold">${entry.rate.toFixed(2)}</td>
+                                          <td className="p-3 font-extrabold text-slate-700">{entry.balanceAfter} {itemObj?.unit}</td>
+                                        </tr>
+                                      );
+                                    })
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
+                        </>
                       );
                     })()}
                   </div>
                 )}
-              </div>
-
-              {(() => {
-                const filteredBalances = balances.filter(bal => {
-                  const itemObj = items.find(i => i.id === bal.itemId);
-                  const matchesSearch = !ledgerSearch || 
-                    itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
-                    itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
-                  const matchesStore = ledgerStoreFilter === "all" || bal.storeId === ledgerStoreFilter;
-                  const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
-                  return matchesSearch && matchesStore && matchesCategory;
-                });
-
-                const filteredLedger = ledger.filter(entry => {
-                  const itemObj = items.find(i => i.id === entry.itemId);
-                  const matchesSearch = !ledgerSearch || 
-                    itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
-                    itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
-                  const matchesStore = ledgerStoreFilter === "all" || entry.storeId === ledgerStoreFilter;
-                  const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
-                  return matchesSearch && matchesStore && matchesCategory;
-                });
-
-                const totalSKUs = filteredBalances.length;
-                const totalStockQty = filteredBalances.reduce((sum, b) => sum + b.qtyOnHand, 0);
-                const totalAssetVal = filteredBalances.reduce((sum, b) => sum + (b.qtyOnHand * b.movingAverageCost), 0);
-                const avgItemCost = totalSKUs > 0 ? (filteredBalances.reduce((sum, b) => sum + b.movingAverageCost, 0) / totalSKUs) : 0;
-
-                return (
-                  <>
-                    {/* Summary Statistics Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filtered Valuation</span>
-                        <div className="mt-2 flex items-baseline gap-1.5">
-                          <span className="text-xl font-extrabold text-slate-800">${totalAssetVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.2 rounded-full">Asset Value</span>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consolidated SKUs</span>
-                        <div className="mt-2 flex items-baseline gap-1.5">
-                          <span className="text-xl font-extrabold text-slate-800">{totalSKUs}</span>
-                          <span className="text-[10px] font-semibold text-slate-500">Unique Cards</span>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">On-Hand Balance</span>
-                        <div className="mt-2 flex items-baseline gap-1.5">
-                          <span className="text-xl font-extrabold text-slate-800">{totalStockQty}</span>
-                          <span className="text-[10px] font-semibold text-slate-500">Total Units</span>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg. Material Cost</span>
-                        <div className="mt-2 flex items-baseline gap-1.5">
-                          <span className="text-xl font-extrabold text-slate-800">${avgItemCost.toFixed(2)}</span>
-                          <span className="text-[10px] font-semibold text-slate-500">Weighted Average</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Active Stock Cards List */}
-                    <div className="space-y-3">
-                      <span className="text-xs font-bold text-slate-700 block">Active Stock Cards ({filteredBalances.length})</span>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {filteredBalances.length === 0 ? (
-                          <div className="col-span-full p-8 text-center text-slate-400 bg-slate-50 border border-slate-100 rounded-xl">
-                            No active stock card records match the chosen search parameters.
-                          </div>
-                        ) : (
-                          filteredBalances.map((bal, idx) => {
-                            const itemObj = items.find(i => i.id === bal.itemId);
-                            const storeObj = stores.find(s => s.id === bal.storeId);
-                            const valuation = bal.qtyOnHand * bal.movingAverageCost;
-                            return (
-                              <div key={`${bal.storeId}-${bal.itemId}-${idx}`} className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="text-xs font-bold text-slate-800">{itemObj?.name}</p>
-                                    <p className="text-[10px] text-slate-400 font-medium">Store: {storeObj?.name}</p>
-                                  </div>
-                                  <span className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 border border-slate-200 rounded">
-                                    {bal.qtyOnHand} {itemObj?.unit}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-slate-200/40">
-                                  <span className="text-slate-400">Weighted MA Cost:</span>
-                                  <span className="font-bold text-slate-700">${bal.movingAverageCost.toFixed(2)}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-[11px]">
-                                  <span className="text-slate-400">Total Asset Value:</span>
-                                  <span className="font-extrabold text-slate-800">${valuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </div>
-                                <div className="text-[9px] text-slate-400 font-semibold bg-white p-1 rounded border border-slate-200/50 mt-1">
-                                  Batches: {bal.fifoQueue.map(bb => `${bb.batch || 'FIFO'} (${bb.qty} @ $${bb.rate.toFixed(2)})`).join(", ") || "None"}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Filtered History logs */}
-                    <div className="space-y-3 pt-4 border-t border-slate-100">
-                      <span className="text-xs font-bold text-slate-700 block">Filtered Stock Ledger History ({filteredLedger.length} Records)</span>
-                      <div className="overflow-x-auto rounded-lg border border-slate-200/60">
-                        <table className="w-full text-left text-xs border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-200/60">
-                              <th className="p-3">Timestamp</th>
-                              <th className="p-3">Store Location</th>
-                              <th className="p-3">Item Name</th>
-                              <th className="p-3">Transaction</th>
-                              <th className="p-3">Doc Ref</th>
-                              <th className="p-3">Batch/Lot No</th>
-                              <th className="p-3">Qty Delta</th>
-                              <th className="p-3">Posting Cost</th>
-                              <th className="p-3">Balance After</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
-                            {filteredLedger.length === 0 ? (
-                              <tr>
-                                <td colSpan={9} className="p-4 text-center text-slate-400">No stock entries registered matching the current filters.</td>
-                              </tr>
-                            ) : (
-                              filteredLedger.map(entry => {
-                                const storeObj = stores.find(s => s.id === entry.storeId);
-                                const itemObj = items.find(i => i.id === entry.itemId);
-                                return (
-                                  <tr key={entry.id} className="hover:bg-slate-50/50">
-                                    <td className="p-3 text-[10px] text-slate-400">{new Date(entry.timestamp).toLocaleString()}</td>
-                                    <td className="p-3 font-semibold text-slate-700">{storeObj?.name}</td>
-                                    <td className="p-3 font-bold text-slate-800">{itemObj?.name}</td>
-                                    <td className="p-3 text-slate-500 font-mono text-[11px]">{entry.transactionType}</td>
-                                    <td className="p-3 font-bold text-slate-600">{entry.transactionId}</td>
-                                    <td className="p-3 font-mono text-[11px] text-slate-400">{entry.batchLotNumber || "--"}</td>
-                                    <td className={`p-3 font-extrabold ${entry.qtyChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                                      {entry.qtyChange >= 0 ? "+" : ""}{entry.qtyChange}
-                                    </td>
-                                    <td className="p-3 font-semibold">${entry.rate.toFixed(2)}</td>
-                                    <td className="p-3 font-extrabold text-slate-700">{entry.balanceAfter} {itemObj?.unit}</td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-          )}
+              </>
+            );
+          })()}
         </div>
       </main>
+
+
 
       {/* Global Transaction Audit Trail Modal Overlay */}
       <AuditTrailModal 
