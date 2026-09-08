@@ -11,7 +11,9 @@ import {
   StockBalance,
   SystemConfig,
   User,
-  Role
+  Role,
+  Item,
+  Store
 } from "../types";
 import { 
   TrendingUp, 
@@ -26,6 +28,15 @@ import {
   Layers,
   Sparkles
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
 
 interface DashboardProps {
   prs: PRHeader[];
@@ -37,6 +48,8 @@ interface DashboardProps {
   openings: StoreOpeningHeader[];
   reconciliations: ReconciliationHeader[];
   balances: StockBalance[];
+  items: Item[];
+  stores: Store[];
   config: SystemConfig;
   setConfig: (c: SystemConfig) => void;
   currentUser: User;
@@ -54,6 +67,8 @@ export default function Dashboard({
   openings,
   reconciliations,
   balances,
+  items,
+  stores,
   config,
   setConfig,
   currentUser,
@@ -84,8 +99,24 @@ export default function Dashboard({
     pendingOpenings.length + 
     pendingReconciliations.length;
 
-  const lowStockItems = balances.filter(b => b.qtyOnHand <= 15);
+  const lowStockItems = balances.filter(b => {
+    const itemObj = items.find(i => i.id === b.itemId);
+    const minLvl = itemObj?.minOrderLevel ?? 15;
+    return b.qtyOnHand <= minLvl;
+  });
   const activePOs = pos.filter(p => p.status === "Approved" || p.status === "Partially Received");
+  const openPRs = prs.filter(p => p.status === "Submitted" || p.status === "Pending Approval" || p.status === "Approved" || p.status === "Partially Fulfilled");
+
+  // Aggregate Store Inventory Value for Recharts Visualization
+  const storeValueData = stores.map(st => {
+    const storeBalances = balances.filter(b => b.storeId === st.id);
+    const value = storeBalances.reduce((sum, b) => sum + (b.qtyOnHand * b.movingAverageCost), 0);
+    return {
+      storeName: st.name,
+      storeCode: st.code,
+      value: parseFloat(value.toFixed(2))
+    };
+  });
 
   // Approval handler helper
   const handleApprovalSubmit = (action: "Approve" | "Reject" | "Return-for-correction") => {
@@ -130,6 +161,63 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* Quick System Health Overview Section */}
+      <div className="bg-slate-50 p-5 rounded-xl border border-slate-200/60 shadow-2xs space-y-3" id="system-health-overview">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">System Health Overview</span>
+          <span className="text-[11px] text-slate-400 font-medium">Real-time status metrics of operational pipelines</span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card 1: Open PRs */}
+          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-open-prs">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+              <FileText size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Open PRs</span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-2xl font-extrabold text-slate-800">{openPRs.length}</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-700">Active</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Pending Approvals */}
+          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-pending-approvals">
+            <div className={`p-3 rounded-lg ${totalPendingApprovals > 0 ? 'bg-amber-50 text-amber-600 animate-pulse' : 'bg-slate-50 text-slate-400'}`}>
+              <Inbox size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Pending Approvals</span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-2xl font-extrabold text-slate-800">{totalPendingApprovals}</span>
+                {totalPendingApprovals > 0 ? (
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-700 animate-pulse">Action Req.</span>
+                ) : (
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-400">Clear</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Total Inventory Value */}
+          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-inventory-value">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+              <TrendingUp size={20} />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Total Inventory Value</span>
+              <div className="flex items-baseline gap-2 mt-0.5">
+                <span className="text-2xl font-extrabold text-slate-800">${totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700">FIFO/Avg</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Hero Analytics Ribbon */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="analytics-ribbon">
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xs flex items-start justify-between" id="metric-stock-value">
@@ -158,7 +246,7 @@ export default function Dashboard({
           <div>
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Low-OnHand Alerts</span>
             <span className="text-3xl font-extrabold text-slate-800 mt-2 block">{lowStockItems.length}</span>
-            <span className="text-xs text-slate-400 mt-1 block">Critical items under 15 units</span>
+            <span className="text-xs text-slate-400 mt-1 block">Under minimum order level</span>
           </div>
           <div className={`p-3 rounded-lg ${lowStockItems.length > 0 ? 'bg-rose-50 text-rose-500 animate-pulse' : 'bg-slate-50 text-slate-400'}`}>
             <AlertTriangle size={20} />
@@ -173,6 +261,130 @@ export default function Dashboard({
           </div>
           <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
             <CheckCircle2 size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* Low Stock Threshold Visual Alerts */}
+      {lowStockItems.length > 0 && (
+        <div className="bg-rose-50/60 border border-rose-200/60 rounded-xl p-5 space-y-3 shadow-xs" id="low-stock-alert-panel">
+          <div className="flex items-center gap-2 text-rose-800">
+            <AlertTriangle size={18} className="animate-pulse" />
+            <span className="text-xs font-bold uppercase tracking-wider">Critical Stock Depletion Alert</span>
+            <span className="ml-auto text-[10px] font-bold bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full">
+              {lowStockItems.length} Items Below Minimum Order Level
+            </span>
+          </div>
+          <p className="text-xs text-rose-700 font-medium">
+            The following items have dipped below their defined safety stock/minimum order levels. Immediate replenishment via Purchase Requisition (PR) is recommended to prevent stockout scenarios.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+            {lowStockItems.map(b => {
+              const itemObj = items.find(i => i.id === b.itemId);
+              const minLvl = itemObj?.minOrderLevel ?? 15;
+              const pct = minLvl > 0 ? Math.min(100, Math.max(0, (b.qtyOnHand / minLvl) * 100)) : 0;
+              return (
+                <div key={`${b.storeId}-${b.itemId}`} className="bg-white p-3.5 rounded-lg border border-rose-100 shadow-2xs flex flex-col justify-between space-y-2">
+                  <div>
+                    <div className="flex justify-between items-start gap-1">
+                      <span className="text-xs font-bold text-slate-800 block truncate" title={itemObj?.name}>
+                        {itemObj?.name}
+                      </span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-mono flex-shrink-0">
+                        {itemObj?.sku}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Group: {itemObj?.group}</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-slate-600">
+                      <span>On Hand: <span className="text-rose-600 font-bold">{b.qtyOnHand} {itemObj?.unit}</span></span>
+                      <span>Min: {minLvl}</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="bg-rose-500 h-1.5 rounded-full" 
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Capital Distribution Analysis Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="dashboard-chart-row">
+        {/* Bar Chart Panel */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-100 shadow-xs p-6 flex flex-col" id="chart-panel-container">
+          <div className="pb-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Capital Allocation by Store Locations</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Visual representation of where aggregate capital budget is active in physical assets.</p>
+            </div>
+            <span className="px-2 py-1 text-[10px] font-bold bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
+              Live Assets
+            </span>
+          </div>
+
+          <div className="mt-6 h-[260px] w-full" id="store-value-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={storeValueData}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="storeName" 
+                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tickFormatter={(val) => `$${val}`}
+                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 600 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip 
+                  formatter={(value) => [`$${parseFloat(value as string).toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 'Asset Value']}
+                  contentStyle={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: 'bold', color: '#1e293b' }}
+                />
+                <Bar 
+                  dataKey="value" 
+                  fill="#4f46e5" 
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={48}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Audit list side card */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-xs p-6 flex flex-col" id="chart-table-container">
+          <div className="pb-4 border-b border-slate-100">
+            <h2 className="text-sm font-bold text-slate-800">Asset Audit List</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">Physical value breakdown for procurement ledgers.</p>
+          </div>
+
+          <div className="mt-4 flex-1 space-y-3">
+            {storeValueData.map(data => {
+              const totalVal = storeValueData.reduce((s, d) => s + d.value, 0);
+              const pct = totalVal > 0 ? ((data.value / totalVal) * 100).toFixed(1) : "0.0";
+              return (
+                <div key={data.storeName} className="p-3 bg-slate-50 border border-slate-200/50 rounded-lg flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 block">{data.storeName}</span>
+                    <span className="text-[10px] text-slate-400 block font-semibold">Code: {data.storeCode} • {pct}% share</span>
+                  </div>
+                  <span className="text-xs font-extrabold text-slate-800">${data.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

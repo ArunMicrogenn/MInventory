@@ -491,15 +491,16 @@ export default function MaterialIssueModule({
                     <div className="space-y-2">
                       {selectedDoc.doc.lines.map((line: any) => {
                         const itemObj = items.find(i => i.id === line.itemId);
+                        const rate = itemObj ? (itemObj.lastPurchaseRate || itemObj.standardRate || 0) : 0;
                         return (
                           <div key={line.id} className="p-3 bg-slate-50 border border-slate-200/40 rounded-lg text-xs space-y-1">
                             <div className="flex justify-between font-bold text-slate-800">
                               <span>{itemObj?.name}</span>
-                              <span className="text-rose-600">-{line.quantity} {itemObj?.unit}</span>
+                              <span className="text-rose-600">-{line.qtyIssued} {itemObj?.unit}</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
                               <span>Batch: <span className="font-mono font-bold text-slate-500">{line.batchLotNumber}</span></span>
-                              <span>Est Cost: ${(line.quantity * line.unitRate).toFixed(2)}</span>
+                              <span>Est Cost: ${(line.qtyIssued * rate).toFixed(2)}</span>
                             </div>
                           </div>
                         );
@@ -649,8 +650,8 @@ export default function MaterialIssueModule({
                                   className="w-full p-1.5 border border-slate-200 rounded bg-white text-xs text-slate-700 font-medium"
                                 >
                                   <option value="FIFO-AUTO">-- Automatic FIFO --</option>
-                                  {balObj?.fifoQueue.map(bb => (
-                                    <option key={bb.batch} value={bb.batch}>{bb.batch} (OnHand: {bb.qty})</option>
+                                  {balObj?.fifoQueue.map((bb, idx) => (
+                                    <option key={bb.batch || idx} value={bb.batch || `FIFO-${idx}`}>{bb.batch || `FIFO Lot #${idx + 1}`} (OnHand: {bb.qty})</option>
                                   ))}
                                 </select>
                               </div>

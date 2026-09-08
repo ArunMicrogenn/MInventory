@@ -58,6 +58,11 @@ export default function App() {
   const [balances, setBalances] = useState<StockBalance[]>(initialStockBalances);
   const [ledger, setLedger] = useState<StockLedgerEntry[]>(initialStockLedger);
 
+  // Stock Ledger Summary & Filter States
+  const [ledgerSearch, setLedgerSearch] = useState<string>("");
+  const [ledgerStoreFilter, setLedgerStoreFilter] = useState<string>("all");
+  const [ledgerItemFilter, setLedgerItemFilter] = useState<string>("all");
+
   // ----------------------------------------------------
   // WEIGHTED MOVING AVERAGE COSTING & STOCK LEDGER ENGINE
   // ----------------------------------------------------
@@ -356,10 +361,10 @@ export default function App() {
       {/* LEFT PERSISTENT SIDEBAR */}
       <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0">
         <div className="p-5 border-b border-slate-800 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-white text-base">P</div>
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-extrabold text-white text-base shadow-sm">I</div>
           <div>
-            <h1 className="text-sm font-black text-white tracking-wider">PIM SYSTEM</h1>
-            <p className="text-[10px] text-slate-500 font-bold tracking-wide mt-0.5">PURCHASE & INVENTORY</p>
+            <h1 className="text-sm font-extrabold text-white tracking-tight">InvenTrack Pro</h1>
+            <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">PURCHASE & LEDGER</p>
           </div>
         </div>
 
@@ -368,7 +373,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "dashboard" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "dashboard" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <LayoutDashboard size={15} />
@@ -379,7 +384,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("masters")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "masters" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "masters" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <Database size={15} />
@@ -390,7 +395,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("pr")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "pr" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "pr" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <ClipboardList size={15} />
@@ -399,7 +404,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("po")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "po" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "po" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <ShoppingBag size={15} />
@@ -410,7 +415,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("mr")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "mr" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "mr" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <Shuffle size={15} />
@@ -419,7 +424,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("grn")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "grn" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "grn" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <CheckSquare size={15} />
@@ -428,7 +433,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("returns")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "returns" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "returns" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <RefreshCw size={15} />
@@ -437,7 +442,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("issues")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "issues" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "issues" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <ArrowLeftRight size={15} />
@@ -446,7 +451,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("recons")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "recons" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "recons" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <Layers size={15} />
@@ -457,7 +462,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("ledger")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "ledger" ? "bg-blue-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "ledger" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <History size={15} />
@@ -468,7 +473,7 @@ export default function App() {
         {/* BOTTOM USER/ROLE QUICK CHANGE FOR EASY DEMO */}
         <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-2">
           <div className="flex items-center gap-2">
-            <UserSquare2 size={16} className="text-blue-400" />
+            <UserSquare2 size={16} className="text-indigo-400" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Actor Simulator Role</span>
           </div>
           <select
@@ -501,7 +506,7 @@ export default function App() {
               <span className="text-xs font-bold text-slate-800 block">{currentUser.name}</span>
               <span className="text-[10px] text-slate-400 font-bold block">{currentUser.departmentId === "all" ? "Corporate Executive" : departments.find(d => d.id === currentUser.departmentId)?.name}</span>
             </div>
-            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-extrabold text-blue-600 text-xs">
+            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-extrabold text-indigo-600 text-xs">
               {currentUser.name.slice(0,2).toUpperCase()}
             </div>
           </div>
@@ -520,6 +525,8 @@ export default function App() {
               openings={openings}
               reconciliations={recons}
               balances={balances}
+              items={items}
+              stores={stores}
               config={config}
               setConfig={setConfig}
               currentUser={currentUser}
@@ -625,87 +632,262 @@ export default function App() {
 
           {activeTab === "ledger" && (
             <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-xs space-y-6">
-              <div>
-                <h2 className="text-base font-bold text-slate-800 font-mono">Stock Card Ledger Audit Trails (Moving Average Costing)</h2>
-                <p className="text-xs text-slate-400 mt-0.5">Real-time valuation of individual item balances, batches queuing, and cost cards auditing.</p>
-              </div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                  <h2 className="text-base font-bold text-slate-800">Stock Card Ledger Summary & Report</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time consolidated balance valuation, transaction auditing, and inventory cost statements.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      // Resolve filtered lists for dynamic export calculation
+                      const filteredBalances = balances.filter(bal => {
+                        const itemObj = items.find(i => i.id === bal.itemId);
+                        const matchesSearch = !ledgerSearch || 
+                          itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+                          itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
+                        const matchesStore = ledgerStoreFilter === "all" || bal.storeId === ledgerStoreFilter;
+                        const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
+                        return matchesSearch && matchesStore && matchesCategory;
+                      });
 
-              {/* Balances summary */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {balances.map(bal => {
-                  const itemObj = items.find(i => i.id === bal.itemId);
-                  const storeObj = stores.find(s => s.id === bal.storeId);
-                  return (
-                    <div key={bal.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">{itemObj?.name}</p>
-                          <p className="text-[10px] text-slate-400">Store: {storeObj?.name}</p>
-                        </div>
-                        <span className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 border border-slate-200 rounded">
-                          {bal.qtyOnHand} {itemObj?.unit}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-slate-200/40">
-                        <span className="text-slate-400">Weighted MA Cost:</span>
-                        <span className="font-bold text-slate-700">${bal.movingAverageRate.toFixed(2)}</span>
-                      </div>
-                      <div className="text-[9px] text-slate-400">
-                        Active Batches: {bal.batchBalances.map(bb => `${bb.batchLotNumber} (${bb.qtyOnHand})`).join(", ") || "None"}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Full Ledger audit table */}
-              <div className="space-y-3 pt-4 border-t border-slate-100">
-                <span className="text-xs font-bold text-slate-700 block">Complete Stock Ledger History</span>
-                <div className="overflow-x-auto rounded-lg border border-slate-100">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-100">
-                        <th className="p-3">Timestamp</th>
-                        <th className="p-3">Store Location</th>
-                        <th className="p-3">Item Name</th>
-                        <th className="p-3">Transaction</th>
-                        <th className="p-3">Doc Ref</th>
-                        <th className="p-3">Batch/Lot No</th>
-                        <th className="p-3">Qty Delta</th>
-                        <th className="p-3">Posting Cost</th>
-                        <th className="p-3">Balance After</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
-                      {ledger.length === 0 ? (
-                        <tr>
-                          <td colSpan={9} className="p-4 text-center text-slate-400">No stock entries registered yet.</td>
-                        </tr>
-                      ) : (
-                        ledger.map(entry => {
-                          const storeObj = stores.find(s => s.id === entry.storeId);
-                          const itemObj = items.find(i => i.id === entry.itemId);
-                          return (
-                            <tr key={entry.id} className="hover:bg-slate-50/50">
-                              <td className="p-3 text-[10px] text-slate-400">{new Date(entry.timestamp).toLocaleString()}</td>
-                              <td className="p-3 font-semibold text-slate-700">{storeObj?.name}</td>
-                              <td className="p-3 font-bold text-slate-800">{itemObj?.name}</td>
-                              <td className="p-3 text-slate-500 font-mono text-[11px]">{entry.transactionType}</td>
-                              <td className="p-3 font-bold text-slate-600">{entry.transactionId}</td>
-                              <td className="p-3 font-mono text-[11px] text-slate-400">{entry.batchLotNumber}</td>
-                              <td className={`p-3 font-extrabold ${entry.qtyChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                                {entry.qtyChange >= 0 ? "+" : ""}{entry.qtyChange}
-                              </td>
-                              <td className="p-3 font-semibold">${entry.unitRate.toFixed(2)}</td>
-                              <td className="p-3 font-extrabold text-slate-700">{entry.balanceAfter} {itemObj?.unit}</td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
+                      const headers = ["Store Location", "Item SKU", "Item Code", "Current On Hand Qty", "Weighted MA Cost ($)", "Valuation ($)"];
+                      const rows = filteredBalances.map(bal => {
+                        const storeObj = stores.find(s => s.id === bal.storeId);
+                        const itemObj = items.find(i => i.id === bal.itemId);
+                        const valuation = bal.qtyOnHand * bal.movingAverageCost;
+                        return [
+                          storeObj?.name || "",
+                          itemObj?.name || "",
+                          itemObj?.code || "",
+                          bal.qtyOnHand,
+                          bal.movingAverageCost.toFixed(2),
+                          valuation.toFixed(2)
+                        ];
+                      });
+                      
+                      const csvContent = "data:text/csv;charset=utf-8," 
+                        + [headers.join(","), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement("a");
+                      link.setAttribute("href", encodedUri);
+                      link.setAttribute("download", `stock_ledger_summary_report_${Date.now()}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 border border-slate-200 transition-all cursor-pointer"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all cursor-pointer"
+                  >
+                    Print Report
+                  </button>
                 </div>
               </div>
+
+              {/* Filtering Toolbar */}
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Search SKU Item</label>
+                  <input
+                    type="text"
+                    value={ledgerSearch}
+                    onChange={(e) => setLedgerSearch(e.target.value)}
+                    placeholder="Search by SKU name or code..."
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Store Location</label>
+                  <select
+                    value={ledgerStoreFilter}
+                    onChange={(e) => setLedgerStoreFilter(e.target.value)}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Stores & Warehouses</option>
+                    {stores.map(st => (
+                      <option key={st.id} value={st.id}>{st.name} ({st.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Item Category</label>
+                  <select
+                    value={ledgerItemFilter}
+                    onChange={(e) => setLedgerItemFilter(e.target.value)}
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="all">All Categories</option>
+                    <option value="Dry Stores">Dry Stores / Groceries</option>
+                    <option value="Cold Storage">Cold Storage / Meat & Dairy</option>
+                    <option value="Beverage Store">Beverage / Wine Store</option>
+                    <option value="General Supplies">General / Kitchen Supplies</option>
+                  </select>
+                </div>
+              </div>
+
+              {(() => {
+                const filteredBalances = balances.filter(bal => {
+                  const itemObj = items.find(i => i.id === bal.itemId);
+                  const matchesSearch = !ledgerSearch || 
+                    itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+                    itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
+                  const matchesStore = ledgerStoreFilter === "all" || bal.storeId === ledgerStoreFilter;
+                  const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
+                  return matchesSearch && matchesStore && matchesCategory;
+                });
+
+                const filteredLedger = ledger.filter(entry => {
+                  const itemObj = items.find(i => i.id === entry.itemId);
+                  const matchesSearch = !ledgerSearch || 
+                    itemObj?.name.toLowerCase().includes(ledgerSearch.toLowerCase()) ||
+                    itemObj?.code.toLowerCase().includes(ledgerSearch.toLowerCase());
+                  const matchesStore = ledgerStoreFilter === "all" || entry.storeId === ledgerStoreFilter;
+                  const matchesCategory = ledgerItemFilter === "all" || itemObj?.category === ledgerItemFilter;
+                  return matchesSearch && matchesStore && matchesCategory;
+                });
+
+                const totalSKUs = filteredBalances.length;
+                const totalStockQty = filteredBalances.reduce((sum, b) => sum + b.qtyOnHand, 0);
+                const totalAssetVal = filteredBalances.reduce((sum, b) => sum + (b.qtyOnHand * b.movingAverageCost), 0);
+                const avgItemCost = totalSKUs > 0 ? (filteredBalances.reduce((sum, b) => sum + b.movingAverageCost, 0) / totalSKUs) : 0;
+
+                return (
+                  <>
+                    {/* Summary Statistics Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filtered Valuation</span>
+                        <div className="mt-2 flex items-baseline gap-1.5">
+                          <span className="text-xl font-extrabold text-slate-800">${totalAssetVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded-full">Asset Value</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Consolidated SKUs</span>
+                        <div className="mt-2 flex items-baseline gap-1.5">
+                          <span className="text-xl font-extrabold text-slate-800">{totalSKUs}</span>
+                          <span className="text-[10px] font-semibold text-slate-500">Unique Cards</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">On-Hand Balance</span>
+                        <div className="mt-2 flex items-baseline gap-1.5">
+                          <span className="text-xl font-extrabold text-slate-800">{totalStockQty}</span>
+                          <span className="text-[10px] font-semibold text-slate-500">Total Units</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/50 flex flex-col justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Avg. Material Cost</span>
+                        <div className="mt-2 flex items-baseline gap-1.5">
+                          <span className="text-xl font-extrabold text-slate-800">${avgItemCost.toFixed(2)}</span>
+                          <span className="text-[10px] font-semibold text-slate-500">Weighted Average</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Active Stock Cards List */}
+                    <div className="space-y-3">
+                      <span className="text-xs font-bold text-slate-700 block">Active Stock Cards ({filteredBalances.length})</span>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {filteredBalances.length === 0 ? (
+                          <div className="col-span-full p-8 text-center text-slate-400 bg-slate-50 border border-slate-100 rounded-xl">
+                            No active stock card records match the chosen search parameters.
+                          </div>
+                        ) : (
+                          filteredBalances.map((bal, idx) => {
+                            const itemObj = items.find(i => i.id === bal.itemId);
+                            const storeObj = stores.find(s => s.id === bal.storeId);
+                            const valuation = bal.qtyOnHand * bal.movingAverageCost;
+                            return (
+                              <div key={`${bal.storeId}-${bal.itemId}-${idx}`} className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-800">{itemObj?.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">Store: {storeObj?.name}</p>
+                                  </div>
+                                  <span className="text-xs font-bold text-slate-700 bg-white px-2 py-0.5 border border-slate-200 rounded">
+                                    {bal.qtyOnHand} {itemObj?.unit}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-slate-200/40">
+                                  <span className="text-slate-400">Weighted MA Cost:</span>
+                                  <span className="font-bold text-slate-700">${bal.movingAverageCost.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px]">
+                                  <span className="text-slate-400">Total Asset Value:</span>
+                                  <span className="font-extrabold text-slate-800">${valuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="text-[9px] text-slate-400 font-semibold bg-white p-1 rounded border border-slate-200/50 mt-1">
+                                  Batches: {bal.fifoQueue.map(bb => `${bb.batch || 'FIFO'} (${bb.qty} @ $${bb.rate.toFixed(2)})`).join(", ") || "None"}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Filtered History logs */}
+                    <div className="space-y-3 pt-4 border-t border-slate-100">
+                      <span className="text-xs font-bold text-slate-700 block">Filtered Stock Ledger History ({filteredLedger.length} Records)</span>
+                      <div className="overflow-x-auto rounded-lg border border-slate-200/60">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 text-slate-400 font-bold uppercase border-b border-slate-200/60">
+                              <th className="p-3">Timestamp</th>
+                              <th className="p-3">Store Location</th>
+                              <th className="p-3">Item Name</th>
+                              <th className="p-3">Transaction</th>
+                              <th className="p-3">Doc Ref</th>
+                              <th className="p-3">Batch/Lot No</th>
+                              <th className="p-3">Qty Delta</th>
+                              <th className="p-3">Posting Cost</th>
+                              <th className="p-3">Balance After</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-slate-600 font-medium">
+                            {filteredLedger.length === 0 ? (
+                              <tr>
+                                <td colSpan={9} className="p-4 text-center text-slate-400">No stock entries registered matching the current filters.</td>
+                              </tr>
+                            ) : (
+                              filteredLedger.map(entry => {
+                                const storeObj = stores.find(s => s.id === entry.storeId);
+                                const itemObj = items.find(i => i.id === entry.itemId);
+                                return (
+                                  <tr key={entry.id} className="hover:bg-slate-50/50">
+                                    <td className="p-3 text-[10px] text-slate-400">{new Date(entry.timestamp).toLocaleString()}</td>
+                                    <td className="p-3 font-semibold text-slate-700">{storeObj?.name}</td>
+                                    <td className="p-3 font-bold text-slate-800">{itemObj?.name}</td>
+                                    <td className="p-3 text-slate-500 font-mono text-[11px]">{entry.transactionType}</td>
+                                    <td className="p-3 font-bold text-slate-600">{entry.transactionId}</td>
+                                    <td className="p-3 font-mono text-[11px] text-slate-400">{entry.batchLotNumber || "--"}</td>
+                                    <td className={`p-3 font-extrabold ${entry.qtyChange >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                      {entry.qtyChange >= 0 ? "+" : ""}{entry.qtyChange}
+                                    </td>
+                                    <td className="p-3 font-semibold">${entry.rate.toFixed(2)}</td>
+                                    <td className="p-3 font-extrabold text-slate-700">{entry.balanceAfter} {itemObj?.unit}</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>

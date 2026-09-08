@@ -24,6 +24,7 @@ export interface Item {
   unit: string;
   qcRequired: boolean;
   isActive: boolean;
+  minOrderLevel?: number;
 }
 
 export interface Store {

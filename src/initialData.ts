@@ -68,7 +68,8 @@ export const initialItems: Item[] = [
     lastPurchaseRate: 2.40,
     unit: "KG",
     qcRequired: true,
-    isActive: true
+    isActive: true,
+    minOrderLevel: 40
   },
   {
     id: "I-02",
@@ -79,7 +80,8 @@ export const initialItems: Item[] = [
     lastPurchaseRate: 42.00,
     unit: "BAG",
     qcRequired: false,
-    isActive: true
+    isActive: true,
+    minOrderLevel: 15
   },
   {
     id: "I-03",
@@ -90,7 +92,8 @@ export const initialItems: Item[] = [
     lastPurchaseRate: 12.00,
     unit: "LITER",
     qcRequired: false,
-    isActive: true
+    isActive: true,
+    minOrderLevel: 25
   },
   {
     id: "I-04",
@@ -101,7 +104,8 @@ export const initialItems: Item[] = [
     lastPurchaseRate: 85.00,
     unit: "PCS",
     qcRequired: false,
-    isActive: true
+    isActive: true,
+    minOrderLevel: 5
   }
 ];
 
