@@ -98,7 +98,17 @@ export default function StoreOpeningReconModule({
         expiryDate: line.expiry,
         openingQty: line.qty,
         openingRate: line.rate
-      }))
+      })),
+      auditTrail: [
+        {
+          id: `AUD-OPN-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action: "Posted",
+          details: `Opening balance sheet posted and baseline ledger locked for Store: ${openStore}.`
+        }
+      ]
     };
 
     // 1. Post to Stock Ledger Engine (instantly posts as Stock-In)
@@ -178,7 +188,17 @@ export default function StoreOpeningReconModule({
       status: "Pending Approval",
       lines: newLines,
       totalVarianceValue: totalAbsoluteVarianceValue,
-      remarks: "Physical stock take count submission"
+      remarks: "Physical stock take count submission",
+      auditTrail: [
+        {
+          id: `AUD-REC-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action: "Submitted",
+          details: `Physical inventory count initiated. Identified ${newLines.length} line item discrepancies with total absolute variance value of $${totalAbsoluteVarianceValue.toFixed(2)}.`
+        }
+      ]
     };
 
     setRecons([...recons, newReconDoc]);
@@ -589,7 +609,7 @@ export default function StoreOpeningReconModule({
                 <button
                   type="button"
                   onClick={handleInitiateRecon}
-                  className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
                 >
                   <RefreshCw size={14} />
                   Snapshot System Balances

@@ -56,6 +56,7 @@ interface DashboardProps {
   setCurrentUser: (u: User) => void;
   users: User[];
   onApproveTransaction: (type: string, id: string, action: "Approve" | "Reject" | "Return-for-correction", remark: string) => void;
+  onViewAudit?: (id: string, type: string, trail: any[]) => void;
 }
 
 export default function Dashboard({
@@ -74,7 +75,8 @@ export default function Dashboard({
   currentUser,
   setCurrentUser,
   users,
-  onApproveTransaction
+  onApproveTransaction,
+  onViewAudit
 }: DashboardProps) {
   const [remarkText, setRemarkText] = useState("");
   const [selectedTx, setSelectedTx] = useState<{ type: string; id: string; title: string; desc: string } | null>(null);
@@ -99,11 +101,17 @@ export default function Dashboard({
     pendingOpenings.length + 
     pendingReconciliations.length;
 
-  const lowStockItems = balances.filter(b => {
-    const itemObj = items.find(i => i.id === b.itemId);
-    const minLvl = itemObj?.minOrderLevel ?? 15;
-    return b.qtyOnHand <= minLvl;
-  });
+  const lowStockItems = items.map(item => {
+    const totalQty = balances
+      .filter(b => b.itemId === item.id)
+      .reduce((sum, b) => sum + b.qtyOnHand, 0);
+    return {
+      itemId: item.id,
+      itemObj: item,
+      qtyOnHand: totalQty,
+      minLvl: item.minOrderLevel
+    };
+  }).filter(entry => entry.qtyOnHand <= entry.minLvl);
   const activePOs = pos.filter(p => p.status === "Approved" || p.status === "Partially Received");
   const openPRs = prs.filter(p => p.status === "Submitted" || p.status === "Pending Approval" || p.status === "Approved" || p.status === "Partially Fulfilled");
 
@@ -172,14 +180,14 @@ export default function Dashboard({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Card 1: Open PRs */}
           <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-open-prs">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
               <FileText size={20} />
             </div>
             <div>
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Open PRs</span>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-extrabold text-slate-800">{openPRs.length}</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-50 text-blue-700">Active</span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700">Active</span>
               </div>
             </div>
           </div>
@@ -226,7 +234,7 @@ export default function Dashboard({
             <span className="text-3xl font-extrabold text-slate-800 mt-2 block">${totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <span className="text-xs text-slate-400 mt-1 block">Based on <span className="font-semibold text-slate-600">{config.costingMethod}</span> formula</span>
           </div>
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
             <TrendingUp size={20} />
           </div>
         </div>
@@ -269,38 +277,42 @@ export default function Dashboard({
       {lowStockItems.length > 0 && (
         <div className="bg-rose-50/60 border border-rose-200/60 rounded-xl p-5 space-y-3 shadow-xs" id="low-stock-alert-panel">
           <div className="flex items-center gap-2 text-rose-800">
-            <AlertTriangle size={18} className="animate-pulse" />
+            <AlertTriangle size={18} className="animate-pulse text-rose-600" />
             <span className="text-xs font-bold uppercase tracking-wider">Critical Stock Depletion Alert</span>
-            <span className="ml-auto text-[10px] font-bold bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full">
-              {lowStockItems.length} Items Below Minimum Order Level
+            <span className="ml-auto text-[10px] font-bold bg-rose-200 text-rose-800 px-2.5 py-0.5 rounded-full animate-bounce">
+              {lowStockItems.length} SKUs At Risk
             </span>
           </div>
           <p className="text-xs text-rose-700 font-medium">
-            The following items have dipped below their defined safety stock/minimum order levels. Immediate replenishment via Purchase Requisition (PR) is recommended to prevent stockout scenarios.
+            The following physical supply items have fallen below or hit their critical safety replenishment parameters across hotel storage locations. Immediate purchase requests are advised.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
             {lowStockItems.map(b => {
-              const itemObj = items.find(i => i.id === b.itemId);
-              const minLvl = itemObj?.minOrderLevel ?? 15;
-              const pct = minLvl > 0 ? Math.min(100, Math.max(0, (b.qtyOnHand / minLvl) * 100)) : 0;
+              const pct = b.minLvl > 0 ? Math.min(100, Math.max(0, (b.qtyOnHand / b.minLvl) * 100)) : 0;
               return (
-                <div key={`${b.storeId}-${b.itemId}`} className="bg-white p-3.5 rounded-lg border border-rose-100 shadow-2xs flex flex-col justify-between space-y-2">
-                  <div>
-                    <div className="flex justify-between items-start gap-1">
-                      <span className="text-xs font-bold text-slate-800 block truncate" title={itemObj?.name}>
-                        {itemObj?.name}
+                <div key={b.itemId} className="bg-white p-3.5 rounded-lg border-2 border-rose-200 shadow-xs flex flex-col justify-between space-y-2 relative overflow-hidden">
+                  {/* High Visibility Warning Badge */}
+                  <div className="absolute top-0 right-0">
+                    <span className="bg-rose-600 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-bl uppercase tracking-wider animate-pulse block">
+                      Reorder Alert
+                    </span>
+                  </div>
+
+                  <div className="pr-16">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-800 truncate block" title={b.itemObj.name}>
+                        {b.itemObj.name}
                       </span>
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-mono flex-shrink-0">
-                        {itemObj?.sku}
+                      <span className="text-[9px] text-slate-400 font-mono font-semibold mt-0.5">
+                        SKU: {b.itemObj.sku} • {b.itemObj.group}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">Group: {itemObj?.group}</span>
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex justify-between text-[11px] font-semibold text-slate-600">
-                      <span>On Hand: <span className="text-rose-600 font-bold">{b.qtyOnHand} {itemObj?.unit}</span></span>
-                      <span>Min: {minLvl}</span>
+                      <span>Total On Hand: <span className="text-rose-600 font-extrabold">{b.qtyOnHand} {b.itemObj.unit}</span></span>
+                      <span>Min Threshold: {b.minLvl}</span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div 
@@ -416,18 +428,29 @@ export default function Dashboard({
                   <div key={pr.id} className="p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/50 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-100 text-blue-700 rounded-sm">Requisition (PR)</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-100 text-indigo-700 rounded-sm">Requisition (PR)</span>
                         <span className="text-xs font-mono font-bold text-slate-700">{pr.id}</span>
                       </div>
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Est. Budget: <span className="text-slate-800">${pr.estimatedValue.toFixed(2)}</span> • Store: {pr.storeId}</p>
                       <p className="text-[11px] text-slate-500 italic mt-0.5">Purpose: "{pr.purpose || 'Not detailed'}"</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "PR", id: pr.id, title: `Authorize ${pr.id}`, desc: `Estimated Requisition Value: $${pr.estimatedValue.toFixed(2)}. Initiated by ${pr.requesterId}.` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 border border-blue-200 hover:border-blue-600 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(pr.id, "PR", pr.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "PR", id: pr.id, title: `Authorize ${pr.id}`, desc: `Estimated Requisition Value: $${pr.estimatedValue.toFixed(2)}. Initiated by ${pr.requesterId}.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 hover:border-indigo-600 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -442,12 +465,23 @@ export default function Dashboard({
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Supplier Total: <span className="text-slate-800">${po.grandTotal.toFixed(2)}</span> • Type: {po.purchaseType}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Store Delivery: {po.deliveryStoreId} • Terms: {po.paymentTerms}</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "PO", id: po.id, title: `Authorize ${po.id}`, desc: `Contract Sum: $${po.grandTotal.toFixed(2)} with Supplier. Budget Category: ${po.purchaseType}.` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 hover:border-indigo-600 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(po.id, "PO", po.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "PO", id: po.id, title: `Authorize ${po.id}`, desc: `Contract Sum: $${po.grandTotal.toFixed(2)} with Supplier. Budget Category: ${po.purchaseType}.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 hover:border-indigo-600 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -462,12 +496,23 @@ export default function Dashboard({
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Cost Center Charge: <span className="text-slate-800">{mr.requestingDeptId}</span> • Valued: ${mr.estimatedValue.toFixed(2)}</p>
                       <p className="text-[11px] text-slate-500 italic mt-0.5">Purpose: "{mr.purpose}"</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "MR", id: mr.id, title: `Authorize ${mr.id}`, desc: `Departmental internal transfer. Cost Center: ${mr.requestingDeptId}. Value: $${mr.estimatedValue.toFixed(2)}` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-200 hover:border-amber-600 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(mr.id, "MR", mr.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "MR", id: mr.id, title: `Authorize ${mr.id}`, desc: `Departmental internal transfer. Cost Center: ${mr.requestingDeptId}. Value: $${mr.estimatedValue.toFixed(2)}` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-200 hover:border-amber-600 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -482,12 +527,23 @@ export default function Dashboard({
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Linked GRN: <span className="text-slate-800">{ret.grnId}</span></p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Debit Note Ref: {ret.debitNoteRef || "Under Approval"}</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "Return", id: ret.id, title: `Authorize Return ${ret.id}`, desc: `Supplier Return document. Reverses physical stock and triggers Finance Debit Note. Linked to receipt ${ret.grnId}.` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(ret.id, "Receipt Return", ret.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "Return", id: ret.id, title: `Authorize Return ${ret.id}`, desc: `Supplier Return document. Reverses physical stock and triggers Finance Debit Note. Linked to receipt ${ret.grnId}.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 hover:border-rose-600 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -502,12 +558,23 @@ export default function Dashboard({
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Linked GRN: <span className="text-slate-800">{rm.grnId}</span></p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Financial Impact: <span className={`font-bold ${rm.totalValueImpact >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>${rm.totalValueImpact.toFixed(2)}</span> (Retroactive valuation correction)</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "RateMod", id: rm.id, title: `Authorize Rate Modification ${rm.id}`, desc: `Retroactive stock revaluation. Total financial impact: $${rm.totalValueImpact.toFixed(2)} across receipt ${rm.grnId} lines.` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-teal-600 hover:text-white bg-teal-50 hover:bg-teal-600 border border-teal-200 hover:border-teal-600 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(rm.id, "Rate Modification", rm.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "RateMod", id: rm.id, title: `Authorize Rate Modification ${rm.id}`, desc: `Retroactive stock revaluation. Total financial impact: $${rm.totalValueImpact.toFixed(2)} across receipt ${rm.grnId} lines.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-teal-600 hover:text-white bg-teal-50 hover:bg-teal-600 border border-teal-200 hover:border-teal-600 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -522,12 +589,23 @@ export default function Dashboard({
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Target Store ID: <span className="text-slate-800">{op.storeId}</span></p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Seeds raw ledger balances for go-live launch. Date: {op.openingDate}</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "Opening", id: op.id, title: `Authorize Opening Balance ${op.id}`, desc: `High trust seed command. Initiates baseline ledger for Store: ${op.storeId}. Once authorized, opening balance is strictly locked.` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-white bg-slate-100 hover:bg-slate-700 border border-slate-300 hover:border-slate-700 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(op.id, "Opening Balance", op.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "Opening", id: op.id, title: `Authorize Opening Balance ${op.id}`, desc: `High trust seed command. Initiates baseline ledger for Store: ${op.storeId}. Once authorized, opening balance is strictly locked.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-slate-700 hover:text-white bg-slate-100 hover:bg-slate-700 border border-slate-300 hover:border-slate-700 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
 
@@ -542,12 +620,23 @@ export default function Dashboard({
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Store ID: <span className="text-slate-800">{rec.storeId}</span> • Variance Sum: <span className="font-bold text-rose-600">${rec.totalVarianceValue.toFixed(2)}</span></p>
                       <p className="text-[11px] text-slate-500 mt-0.5">Count Type: {rec.isBlind ? 'Blind (Hidden Books)' : 'Open count'}</p>
                     </div>
-                    <button 
-                      onClick={() => setSelectedTx({ type: "Reconciliation", id: rec.id, title: `Authorize Reconciliation Variance ${rec.id}`, desc: `Adjust book stock to match physical counting on ${rec.countDate} in ${rec.storeId}. Total adjustment value impact: $${rec.totalVarianceValue.toFixed(2)}.` })}
-                      className="px-3.5 py-1.5 text-xs font-bold text-orange-600 hover:text-white bg-orange-50 hover:bg-orange-600 border border-orange-200 hover:border-orange-600 rounded-lg transition-all self-end sm:self-center"
-                    >
-                      Process Transaction
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      {onViewAudit && (
+                        <button 
+                          onClick={() => onViewAudit(rec.id, "Reconciliation", rec.auditTrail || [])} 
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Full Lifecycle Audit Trail"
+                        >
+                          <Clock size={14} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedTx({ type: "Reconciliation", id: rec.id, title: `Authorize Reconciliation Variance ${rec.id}`, desc: `Adjust book stock to match physical counting on ${rec.countDate} in ${rec.storeId}. Total adjustment value impact: $${rec.totalVarianceValue.toFixed(2)}.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-orange-600 hover:text-white bg-orange-50 hover:bg-orange-600 border border-orange-200 hover:border-orange-600 rounded-lg transition-all"
+                      >
+                        Process Transaction
+                      </button>
+                    </div>
                   </div>
                 ))}
               </>
@@ -567,12 +656,12 @@ export default function Dashboard({
 
           <div className="mt-5 space-y-5 flex-1" id="config-form-sections">
             {/* Costing Algorithm Toggle */}
-            <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl" id="costing-formula-selector">
-              <label className="text-xs font-bold text-blue-800 uppercase tracking-wide flex items-center gap-1.5">
+            <div className="p-4 bg-indigo-50/50 border border-blue-100 rounded-xl" id="costing-formula-selector">
+              <label className="text-xs font-bold text-indigo-800 uppercase tracking-wide flex items-center gap-1.5">
                 <Layers size={14} />
                 Asset Costing Method
               </label>
-              <p className="text-[11px] text-blue-600 mt-0.5">Governs materials issue valuation and rate correction re-calculations.</p>
+              <p className="text-[11px] text-indigo-600 mt-0.5">Governs materials issue valuation and rate correction re-calculations.</p>
               
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <button
@@ -580,7 +669,7 @@ export default function Dashboard({
                   onClick={() => setConfig({ ...config, costingMethod: "Moving Average" })}
                   className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all text-center ${
                     config.costingMethod === "Moving Average"
-                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                   id="btn-costing-moving-average"
@@ -592,7 +681,7 @@ export default function Dashboard({
                   onClick={() => setConfig({ ...config, costingMethod: "FIFO" })}
                   className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all text-center ${
                     config.costingMethod === "FIFO"
-                      ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                   id="btn-costing-fifo"

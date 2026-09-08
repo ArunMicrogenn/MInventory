@@ -84,7 +84,7 @@ export default function MasterDataModule({
           <button
             onClick={() => setActiveTab("items")}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "items" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "items" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <Package size={14} />
@@ -93,7 +93,7 @@ export default function MasterDataModule({
           <button
             onClick={() => setActiveTab("stores")}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "stores" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "stores" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <LayoutGrid size={14} />
@@ -102,7 +102,7 @@ export default function MasterDataModule({
           <button
             onClick={() => setActiveTab("departments")}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "departments" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "departments" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <Building2 size={14} />
@@ -111,7 +111,7 @@ export default function MasterDataModule({
           <button
             onClick={() => setActiveTab("suppliers")}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "suppliers" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "suppliers" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <ShoppingCart size={14} />
@@ -120,7 +120,7 @@ export default function MasterDataModule({
           <button
             onClick={() => setActiveTab("users")}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "users" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "users" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             <Users size={14} />
@@ -137,7 +137,7 @@ export default function MasterDataModule({
               <h3 className="text-sm font-bold text-slate-700">Item Master Directory</h3>
               <button
                 onClick={() => setShowItemForm(!showItemForm)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
                 id="btn-add-item"
               >
                 <Plus size={14} />
@@ -210,7 +210,7 @@ export default function MasterDataModule({
                     id="qcRequiredCheckbox"
                     checked={itemQc}
                     onChange={(e) => setItemQc(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
                   />
                   <label htmlFor="qcRequiredCheckbox" className="text-xs font-bold text-slate-700 cursor-pointer">Mandate Quality Control (QC)</label>
                 </div>
@@ -224,7 +224,7 @@ export default function MasterDataModule({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                    className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                   >
                     Save Registration
                   </button>
@@ -289,7 +289,7 @@ export default function MasterDataModule({
               <h3 className="text-sm font-bold text-slate-700">Locations & Main/Sub Stores</h3>
               <button
                 onClick={() => setShowStoreForm(!showStoreForm)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
                 id="btn-add-store"
               >
                 <Plus size={14} />
@@ -331,7 +331,7 @@ export default function MasterDataModule({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
                   >
                     Register Store
                   </button>
@@ -347,7 +347,7 @@ export default function MasterDataModule({
                     <h4 className="text-sm font-bold text-slate-800 mt-0.5">{store.name}</h4>
                     <p className="text-[11px] text-slate-400 mt-1">Status Scope: Active Ledger</p>
                   </div>
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg font-mono font-bold text-xs">{store.id}</div>
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg font-mono font-bold text-xs">{store.id}</div>
                 </div>
               ))}
             </div>
@@ -404,7 +404,7 @@ export default function MasterDataModule({
                       <td className="p-3 font-mono font-bold text-slate-700">{sup.code}</td>
                       <td className="p-3 font-bold text-slate-800">{sup.name}</td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded-sm">
+                        <span className="px-2 py-0.5 text-[11px] font-semibold bg-indigo-50 text-indigo-700 rounded-sm">
                           {sup.paymentTerms}
                         </span>
                       </td>
@@ -427,7 +427,7 @@ export default function MasterDataModule({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {users.map(u => (
                 <div key={u.id} className="p-4 border border-slate-100 rounded-xl bg-slate-50/50 flex items-start gap-3">
-                  <div className="p-2.5 bg-blue-50 text-blue-600 rounded-full">
+                  <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-full">
                     <UserCheck size={18} />
                   </div>
                   <div className="space-y-1.5 flex-1">

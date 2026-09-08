@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MRHeader, MRLine, Item, Store, Department, User, TransactionStatus, AuditLog } from "../types";
-import { Plus, X, Eye, FileEdit, Trash2, BadgeX, CornerDownRight } from "lucide-react";
+import { Plus, X, Eye, FileEdit, Trash2, BadgeX, CornerDownRight, Clock } from "lucide-react";
 
 interface MRModuleProps {
   mrs: MRHeader[];
@@ -9,6 +9,7 @@ interface MRModuleProps {
   stores: Store[];
   departments: Department[];
   currentUser: User;
+  onViewAudit?: (id: string, type: string, trail: any[]) => void;
 }
 
 export default function MRModule({
@@ -17,7 +18,8 @@ export default function MRModule({
   items,
   stores,
   departments,
-  currentUser
+  currentUser,
+  onViewAudit
 }: MRModuleProps) {
   const [selectedMR, setSelectedMR] = useState<MRHeader | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -253,7 +255,7 @@ export default function MRModule({
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
               id="btn-raise-mr"
             >
               <Plus size={14} />
@@ -297,7 +299,7 @@ export default function MRModule({
                           mr.status === "Draft" ? "bg-slate-100 text-slate-600" :
                           mr.status === "Pending Approval" ? "bg-amber-100 text-amber-800" :
                           mr.status === "Approved" ? "bg-emerald-100 text-emerald-800" :
-                          mr.status === "Partially Fulfilled" ? "bg-blue-100 text-blue-800" :
+                          mr.status === "Partially Fulfilled" ? "bg-blue-100 text-indigo-800" :
                           mr.status === "Closed" ? "bg-slate-200 text-slate-700" :
                           "bg-rose-100 text-rose-800"
                         }`}>
@@ -406,7 +408,7 @@ export default function MRModule({
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-bold text-slate-700">{line.quantity} {itemObj?.unit}</p>
-                          <p className="text-[10px] text-blue-600 bg-blue-50 px-1 py-0.2 rounded inline-block font-bold">Issued: {line.issuedQty}</p>
+                          <p className="text-[10px] text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded inline-block font-bold">Issued: {line.issuedQty}</p>
                         </div>
                       </div>
                     );
@@ -415,8 +417,18 @@ export default function MRModule({
               </div>
 
               {/* Audit trail */}
-              <div className="space-y-2 border-t border-slate-100 pt-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Workflow Logs</span>
+              <div className="space-y-3 border-t border-slate-100 pt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Workflow Logs</span>
+                  {onViewAudit && (
+                    <button
+                      onClick={() => onViewAudit(selectedMR.id, "Material Request (MR)", selectedMR.auditTrail)}
+                      className="px-2.5 py-1 text-[10px] font-extrabold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-indigo-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <Clock size={10} /> View Visual Timeline
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 text-[11px] text-slate-600">
                   {selectedMR.auditTrail.map((log, idx) => (
                     <div key={log.id || idx} className="flex gap-2 items-start">
@@ -595,7 +607,7 @@ export default function MRModule({
               </button>
               <button
                 onClick={() => handleSaveMR("Submitted")}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
               >
                 Submit for Approval
               </button>

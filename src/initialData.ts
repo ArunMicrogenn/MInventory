@@ -385,6 +385,16 @@ export const initialReturns: ReceiptReturnHeader[] = [
         returnQty: 5,
         reasonCode: "damaged"
       }
+    ],
+    auditTrail: [
+      {
+        id: "AUD-RET-01",
+        timestamp: "2026-09-05T14:00:00Z",
+        userId: "U-02",
+        userName: "Alice Receiver",
+        action: "Posted",
+        details: "Receipt return successfully executed and posted to ledger."
+      }
     ]
   }
 ];
@@ -429,6 +439,16 @@ export const initialStoreOpenings: StoreOpeningHeader[] = [
       { id: "OPNL-001", itemId: "I-01", quantity: 50, rate: 2.50 },
       { id: "OPNL-002", itemId: "I-02", quantity: 20, rate: 45.00 },
       { id: "OPNL-003", itemId: "I-03", quantity: 30, rate: 12.00 }
+    ],
+    auditTrail: [
+      {
+        id: "AUD-OPN-01",
+        timestamp: "2026-08-30T09:00:00Z",
+        userId: "U-04",
+        userName: "Admin Officer",
+        action: "Posted",
+        details: "Go-live store balances seeded and locked."
+      }
     ]
   }
 ];

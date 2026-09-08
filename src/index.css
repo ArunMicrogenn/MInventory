@@ -1,1 +1,119 @@
 @import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #f8fafc; /* Slate 50 background */
+    color: #334155; /* Slate 700 text color */
+    letter-spacing: -0.01em;
+  }
+
+  /* Sophisticated custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* Slate 300 */
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* Slate 400 */
+  }
+
+  /* Refined professional focus ring styles */
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #6366f1 !important; /* Indigo 500 */
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+  }
+}
+
+/* Premium Card & Animation Helpers */
+.premium-card {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+.premium-card:hover {
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+}
+
+/* Elite Corporate Table & Tab Overrides */
+.corporate-th {
+  background-color: #f1f5f9; /* Slate 100 */
+  color: #475569; /* Slate 600 */
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.corporate-tr:hover {
+  background-color: #f8fafc; /* Slate 50 */
+  transition: background-color 0.15s ease-in-out;
+}
+
+.tab-active {
+  color: #4f46e5 !important; /* Indigo 600 */
+  border-bottom: 2px solid #4f46e5 !important;
+  font-weight: 700;
+}
+
+.tab-inactive {
+  color: #64748b !important; /* Slate 500 */
+  border-bottom: 2px solid transparent !important;
+}
+
+.tab-inactive:hover {
+  color: #334155 !important; /* Slate 700 */
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+/* Sidebar Nav Item corporate hover transitions */
+aside nav button {
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+aside nav button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 3px;
+  background-color: #6366f1; /* Indigo 500 */
+  opacity: 0;
+  border-radius: 0 4px 4px 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+aside nav button:hover::before {
+  opacity: 0.5;
+}
+
+/* When the button has the active background color, highlight the line completely */
+aside nav button.bg-indigo-600::before {
+  opacity: 1;
+  background-color: #ffffff; /* White indicator for active dark buttons */
+}
+
+/* Premium Header Adjustments */
+header {
+  backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.2s ease-in-out;
+}
+
+header:hover {
+  background-color: #ffffff !important;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+}

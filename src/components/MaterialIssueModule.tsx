@@ -338,7 +338,7 @@ export default function MaterialIssueModule({
           <button
             onClick={() => { setActiveTab("issues"); setSelectedDoc(null); }}
             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "issues" ? "bg-white text-blue-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "issues" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             Material Issues
@@ -356,7 +356,7 @@ export default function MaterialIssueModule({
         {activeTab === "issues" ? (
           <button
             onClick={() => setIsCreatingIssue(true)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
             id="btn-trigger-issue"
           >
             <Plus size={14} />
@@ -398,7 +398,7 @@ export default function MaterialIssueModule({
                       const deptObj = departments.find(d => d.id === iss.requestingDeptId);
                       return (
                         <tr key={iss.id} className="hover:bg-slate-50/50">
-                          <td className="p-3 font-mono font-bold text-blue-700">{iss.id}</td>
+                          <td className="p-3 font-mono font-bold text-indigo-700">{iss.id}</td>
                           <td className="p-3 font-mono text-slate-500">{iss.sourceMRId || "DIRECT"}</td>
                           <td className="p-3 font-semibold text-slate-700">{storeObj?.name}</td>
                           <td className="p-3">{deptObj?.name}</td>
@@ -475,12 +475,12 @@ export default function MaterialIssueModule({
 
               {selectedDoc.type === "Issue" ? (
                 <div className="space-y-4">
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg space-y-1 text-xs">
-                    <div className="flex justify-between font-bold text-blue-800">
+                  <div className="p-3 bg-indigo-50 border border-blue-100 rounded-lg space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-indigo-800">
                       <span>Ledger Status:</span>
                       <span>CONSUMED-POSTED</span>
                     </div>
-                    <div className="flex justify-between text-slate-600 pt-1 border-t border-blue-200/30">
+                    <div className="flex justify-between text-slate-600 pt-1 border-t border-indigo-200/30">
                       <span>Debited CC:</span>
                       <span className="font-bold text-slate-800">{departments.find(d => d.id === selectedDoc.doc.requestingDeptId)?.costCenter}</span>
                     </div>
@@ -571,7 +571,7 @@ export default function MaterialIssueModule({
                   type="button"
                   onClick={() => setIssueType("MR")}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    issueType === "MR" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500"
+                    issueType === "MR" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500"
                   }`}
                 >
                   Fulfill Approved Requisition (MR)
@@ -580,7 +580,7 @@ export default function MaterialIssueModule({
                   type="button"
                   onClick={() => setIssueType("Direct")}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    issueType === "Direct" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500"
+                    issueType === "Direct" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500"
                   }`}
                 >
                   Direct Consumption Issue
@@ -622,7 +622,7 @@ export default function MaterialIssueModule({
                             <div className="flex justify-between">
                               <h4 className="text-xs font-extrabold text-slate-800">{itemObj?.name}</h4>
                               <div className="flex gap-2 text-[10px] font-bold">
-                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded">Requested Open: {open}</span>
+                                <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">Requested Open: {open}</span>
                                 <span className={`px-2 py-0.5 rounded ${onHand < open ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}`}>
                                   Available On Hand: {onHand}
                                 </span>
@@ -786,7 +786,7 @@ export default function MaterialIssueModule({
               </button>
               <button
                 onClick={handlePostIssue}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
               >
                 Post Issue & Reduce Stock
               </button>
@@ -846,7 +846,7 @@ export default function MaterialIssueModule({
                       <div key={line.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                         <div className="flex justify-between text-xs font-bold text-slate-800">
                           <span>{itemObj?.name}</span>
-                          <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Originally Issued: {line.qtyIssued}</span>
+                          <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Originally Issued: {line.qtyIssued}</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 items-end">

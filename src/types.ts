@@ -215,6 +215,7 @@ export interface ReceiptReturnHeader {
   debitNoteRef?: string;
   returnDate: string;
   lines: ReceiptReturnLine[];
+  auditTrail: AuditLog[];
 }
 
 // 6. Receipt Rate Modification
@@ -294,6 +295,7 @@ export interface StoreOpeningHeader {
   openingDate: string;
   status: "Draft" | "Pending Approval" | "Posted";
   lines: StoreOpeningLine[];
+  auditTrail: AuditLog[];
 }
 
 // 10. Physical Inventory Reconciliation
@@ -316,6 +318,7 @@ export interface ReconciliationHeader {
   lines: ReconciliationLine[];
   totalVarianceValue: number;
   remarks?: string;
+  auditTrail: AuditLog[];
 }
 
 // Stock Ledger entry schema

@@ -132,7 +132,17 @@ export default function ReturnsRateModModule({
       status: "Posted", // Auto posts since it reduces on-hand physical stock
       debitNoteRef: `DN-${Math.floor(1000 + Math.random() * 9000)}`,
       returnDate: new Date().toISOString().split("T")[0],
-      lines: newLines
+      lines: newLines,
+      auditTrail: [
+        {
+          id: `AUD-RET-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action: "Posted",
+          details: `Supplier return submitted and posted. Debit note reference: DN-${Math.floor(1000 + Math.random() * 9000)}`
+        }
+      ]
     };
 
     // 1. Post stock-out ledger reversing entries immediately

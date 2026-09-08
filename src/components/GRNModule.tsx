@@ -311,7 +311,7 @@ export default function GRNModule({
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
               id="btn-post-new-grn"
             >
               <Plus size={14} />
@@ -468,7 +468,7 @@ export default function GRNModule({
                   type="button"
                   onClick={() => setGrnType("PO")}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    grnType === "PO" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500"
+                    grnType === "PO" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500"
                   }`}
                 >
                   Receive against PO Contract
@@ -477,7 +477,7 @@ export default function GRNModule({
                   type="button"
                   onClick={() => setGrnType("Direct")}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    grnType === "Direct" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500"
+                    grnType === "Direct" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500"
                   }`}
                 >
                   Direct Receipt Exception
@@ -711,7 +711,7 @@ export default function GRNModule({
               </button>
               <button
                 onClick={handlePostGRN}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
               >
                 Post Receipt & Stock-In
               </button>
