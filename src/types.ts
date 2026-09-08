@@ -344,3 +344,75 @@ export interface StockBalance {
   // FIFO Queue to support FIFO valuation
   fifoQueue: { qty: number; rate: number; batch?: string }[];
 }
+
+// 11. Store / Financial Day Closure
+export interface DayClosureChecklistItem {
+  id: string;
+  label: string;
+  description: string;
+  status: "Passed" | "Warning" | "Pending" | "Blocked";
+  details?: string;
+  count?: number;
+}
+
+export interface DayClosureRecord {
+  id: string; // EOD-YYYYMMDD-STOREID or EOD-YYYYMMDD-ALL
+  closureDate: string; // YYYY-MM-DD
+  closedAt: string; // ISO timestamp
+  closedBy: string; // User Name
+  closedById: string; // User ID
+  closedByRole: string;
+  storeId: string; // "all" or specific storeId
+  storeName: string;
+  status: "Closed" | "Re-opened";
+  totalInventoryValuation: number;
+  totalGrnCount: number;
+  totalGrnValue: number;
+  totalIssueCount: number;
+  totalIssueValue: number;
+  totalReturnCount: number;
+  pendingPrsCount: number;
+  pendingPosCount: number;
+  pendingApprovalsCount: number;
+  stockLedgerEntriesCount: number;
+  checklist: DayClosureChecklistItem[];
+  remarks: string;
+  auditTrail: AuditLog[];
+}
+
+// 12. Store / Financial Month Closure (EOM)
+export interface MonthClosureChecklistItem {
+  id: string;
+  label: string;
+  description: string;
+  status: "Passed" | "Warning" | "Pending" | "Blocked";
+  details?: string;
+  count?: number;
+}
+
+export interface MonthClosureRecord {
+  id: string; // EOM-YYYYMM-STOREID or EOM-YYYYMM-ALL
+  closureMonth: string; // YYYY-MM
+  closedAt: string; // ISO timestamp
+  closedBy: string; // User Name
+  closedById: string; // User ID
+  closedByRole: string;
+  storeId: string; // "all" or specific storeId
+  storeName: string;
+  status: "Closed" | "Re-opened";
+  openingValuation: number;
+  closingValuation: number;
+  totalGrnCount: number;
+  totalGrnValue: number;
+  totalIssueCount: number;
+  totalIssueValue: number;
+  totalReturnCount: number;
+  totalReconciliationVariance: number;
+  pendingTransactionsCount: number;
+  stockLedgerEntriesCount: number;
+  checklist: MonthClosureChecklistItem[];
+  remarks: string;
+  auditTrail: AuditLog[];
+}
+
+

@@ -4,7 +4,8 @@
   body {
     background-color: #f8fafc; /* Slate 50 background */
     color: #334155; /* Slate 700 text color */
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   }
 
   /* Sophisticated custom scrollbar */
@@ -27,31 +28,31 @@
   input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: #6366f1 !important; /* Indigo 500 */
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
   }
 }
 
 /* Premium Card & Animation Helpers */
 .premium-card {
   background: #ffffff;
-  border: 1px solid #f1f5f9;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-  border-radius: 12px;
-  transition: all 0.2s ease-in-out;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+  border-radius: 14px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .premium-card:hover {
-  border-color: #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px -3px rgba(15, 23, 42, 0.06), 0 3px 6px -2px rgba(15, 23, 42, 0.03);
 }
 
 /* Elite Corporate Table & Tab Overrides */
 .corporate-th {
   background-color: #f1f5f9; /* Slate 100 */
-  color: #475569; /* Slate 600 */
+  color: #334155; /* Slate 700 */
   font-weight: 700;
   font-size: 10px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -72,8 +73,8 @@
 }
 
 .tab-inactive:hover {
-  color: #334155 !important; /* Slate 700 */
-  border-bottom: 2px solid #e2e8f0 !important;
+  color: #1e293b !important; /* Slate 800 */
+  border-bottom: 2px solid #cbd5e1 !important;
 }
 
 /* Sidebar Nav Item corporate hover transitions */
@@ -100,6 +101,7 @@ aside nav button:hover::before {
 }
 
 /* When the button has the active background color, highlight the line completely */
+aside nav button.bg-purple-600::before,
 aside nav button.bg-indigo-600::before {
   opacity: 1;
   background-color: #ffffff; /* White indicator for active dark buttons */
@@ -107,13 +109,95 @@ aside nav button.bg-indigo-600::before {
 
 /* Premium Header Adjustments */
 header {
-  backdrop-filter: blur(8px);
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.96) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.01);
   transition: all 0.2s ease-in-out;
 }
 
 header:hover {
   background-color: #ffffff !important;
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.03);
+}
+
+/* ==========================================================================
+   PRINT SPECIFIC STYLES & CLEAN VOUCHER FORMATTING
+   ========================================================================== */
+@media print {
+  @page {
+    margin: 10mm 12mm;
+    size: auto;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide app navigation, sidebars, headers, and buttons */
+  aside,
+  header,
+  nav,
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset modal wrapper overlay */
+  .fixed.inset-0.z-50 {
+    position: static !important;
+    background: transparent !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  #print-modal-container {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  #print-modal-container .print\:hidden,
+  #print-modal-container button {
+    display: none !important;
+  }
+
+  #printable-document-voucher {
+    display: block !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    page-break-inside: avoid;
+  }
+
+  table {
+    page-break-inside: auto;
+    width: 100% !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
 }

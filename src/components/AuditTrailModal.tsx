@@ -26,7 +26,7 @@ export default function AuditTrailModal({
         {/* Header */}
         <div className="bg-slate-50 border-b border-slate-200/60 p-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
               <Clock size={18} />
             </div>
             <div>
@@ -34,7 +34,7 @@ export default function AuditTrailModal({
                 Transaction Lifecycle Timeline
               </h3>
               <p className="text-[11px] text-slate-400 font-medium">
-                Comprehensive audit trail for <span className="font-bold text-slate-600">{transactionType}</span> • <span className="font-mono font-bold text-indigo-600">{transactionId}</span>
+                Comprehensive audit trail for <span className="font-bold text-slate-600">{transactionType}</span> • <span className="font-mono font-bold text-purple-600">{transactionId}</span>
               </p>
             </div>
           </div>
@@ -50,7 +50,7 @@ export default function AuditTrailModal({
         {/* Audit Content / Vertical Timeline */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {auditTrail && auditTrail.length > 0 ? (
-            <div className="relative border-l-2 border-indigo-100 pl-6 ml-3 space-y-6">
+            <div className="relative border-l-2 border-purple-100 pl-6 ml-3 space-y-6">
               {auditTrail.map((log, index) => {
                 // Determine action badge styling
                 let actionColor = "bg-slate-100 text-slate-700";
@@ -85,8 +85,8 @@ export default function AuditTrailModal({
                 return (
                   <div key={log.id || index} className="relative group">
                     {/* Glowing Timeline Indicator Node */}
-                    <div className="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full group-hover:bg-indigo-500 group-hover:scale-110 transition-all flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 bg-indigo-500 group-hover:bg-white rounded-full" />
+                    <div className="absolute -left-[31px] top-1 w-4 h-4 bg-white border-2 border-purple-500 rounded-full group-hover:bg-purple-500 group-hover:scale-110 transition-all flex items-center justify-center">
+                      <div className="w-1.5 h-1.5 bg-purple-500 group-hover:bg-white rounded-full" />
                     </div>
 
                     <div className="bg-slate-50 hover:bg-slate-100/60 transition-all rounded-lg p-4 border border-slate-200/50 space-y-2">

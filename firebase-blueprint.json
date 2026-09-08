@@ -1,0 +1,65 @@
+{
+  "entities": {
+    "PR": {
+      "title": "Purchase Requisition",
+      "description": "Purchase Requisition document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "property": { "type": "string" },
+        "status": { "type": "string" },
+        "requesterId": { "type": "string" }
+      },
+      "required": ["id", "status"]
+    },
+    "PO": {
+      "title": "Purchase Order",
+      "description": "Purchase Order document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "status"]
+    },
+    "MR": {
+      "title": "Material Request",
+      "description": "Material Request document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "status"]
+    },
+    "GRN": {
+      "title": "Material Receipt",
+      "description": "Material Receipt document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "status"]
+    },
+    "StockBalance": {
+      "title": "Stock Balance",
+      "description": "Stock balance per store and item",
+      "type": "object",
+      "properties": {
+        "storeId": { "type": "string" },
+        "itemId": { "type": "string" },
+        "qtyOnHand": { "type": "number" },
+        "movingAverageCost": { "type": "number" }
+      },
+      "required": ["storeId", "itemId", "qtyOnHand"]
+    }
+  },
+  "firestore": {
+    "/prs/{id}": { "schema": { "$ref": "PR" }, "description": "Purchase Requisitions" },
+    "/pos/{id}": { "schema": { "$ref": "PO" }, "description": "Purchase Orders" },
+    "/mrs/{id}": { "schema": { "$ref": "MR" }, "description": "Material Requests" },
+    "/grns/{id}": { "schema": { "$ref": "GRN" }, "description": "Material Receipts" },
+    "/inventory/{id}": { "schema": { "$ref": "StockBalance" }, "description": "Inventory balances" }
+  }
+}

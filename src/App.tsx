@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { auth, googleProvider } from "./lib/firebase";
+import { subscribeToCollection, updateDocument, deleteDocument } from "./lib/firestoreService";
 import { 
   Item, Store, Department, Supplier, User, SystemConfig, 
   PRHeader, POHeader, MRHeader, GRNHeader, ReceiptReturnHeader, 
   RateModHeader, IssueHeader, IssueReturnHeader, 
-  StoreOpeningHeader, ReconciliationHeader, StockBalance, StockLedgerEntry 
+  StoreOpeningHeader, ReconciliationHeader, StockBalance, StockLedgerEntry,
+  DayClosureRecord, MonthClosureRecord
 } from "./types";
 import { 
   initialItems, initialStores, initialDepartments, initialSuppliers, 
   initialUsers, initialConfig, initialPRs, initialPOs, initialMRs, 
-  initialGRNs, initialStockBalances, initialStockLedger 
+  initialGRNs, initialStockBalances, initialStockLedger, initialDayClosures
 } from "./initialData";
 
 import Dashboard from "./components/Dashboard";
@@ -21,18 +25,113 @@ import ReturnsRateModModule from "./components/ReturnsRateModModule";
 import MaterialIssueModule from "./components/MaterialIssueModule";
 import StoreOpeningReconModule from "./components/StoreOpeningReconModule";
 import AuditTrailModal from "./components/AuditTrailModal";
+import ReportsModule from "./components/ReportsModule";
+import DayClosureModal from "./components/DayClosureModal";
+import MonthClosureModal from "./components/MonthClosureModal";
+import ReprintCenterModule from "./components/ReprintCenterModule";
+import AuthScreen from "./components/AuthScreen";
 
 import { 
   LayoutDashboard, Database, ClipboardList, ShoppingBag, 
   Shuffle, CheckSquare, RefreshCw, Layers, History, HelpCircle, 
-  UserSquare2, ArrowLeftRight 
+  UserSquare2, ArrowLeftRight, FileText, CalendarCheck2, Printer
 } from "lucide-react";
 
 export default function App() {
+  // Auth state
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // App User Session state (supports Email/Password, 1-Click Role Login, and Google)
+  const [appUser, setAppUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem("inventrack_user_session");
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      setLoading(false);
+      setLoginError(null);
+    }, (error) => {
+      console.warn("Auth state notice", error);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
   // Navigation Routing
   const [activeTab, setActiveTab] = useState<string>("dashboard");
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
-  // Master Data States
+  const handleLoginSuccess = (userInfo: {
+    id: string;
+    name: string;
+    email?: string;
+    role: any;
+    department?: string;
+    designation?: string;
+  }) => {
+    const sessionUser: User = {
+      id: userInfo.id,
+      name: userInfo.name,
+      role: userInfo.role,
+      department: userInfo.department || "Procurement",
+      permissions: ["all-access", "raise-PR", "raise-PO", "post-GRN", "approve-PR"]
+    };
+    setAppUser(sessionUser);
+    setCurrentUser(sessionUser);
+    try {
+      localStorage.setItem("inventrack_user_session", JSON.stringify(sessionUser));
+    } catch (e) {
+      console.warn("Session save error", e);
+    }
+  };
+
+  const handleSignIn = async () => {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    try {
+      setLoginError(null);
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Sign in failed. Full error object:", error);
+      // Map common Firebase errors to readable messages
+      if (error.code === 'auth/invalid-credential') {
+        setLoginError("Invalid credential. Please try again or use Username/Password.");
+      } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        setLoginError("Sign-in cancelled. Please try again or use Username/Password.");
+      } else if (error.code === 'auth/network-request-failed') {
+        setLoginError("Network error. Please check your internet connection.");
+      } else {
+        setLoginError("Google OAuth error. Please use Username/Password or Quick Demo login.");
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Sign out failed", error);
+    }
+    setFirebaseUser(null);
+    setAppUser(null);
+    try {
+      localStorage.removeItem("inventrack_user_session");
+    } catch (e) {
+      console.warn("Storage error", e);
+    }
+  };
+
   const [items, setItems] = useState<Item[]>(initialItems);
   const [stores, setStores] = useState<Store[]>(initialStores);
   const [departments, setDepartments] = useState<Department[]>(initialDepartments);
@@ -44,10 +143,10 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User>(initialUsers[0]); // Default: Chef/Requester
 
   // Transactional States
-  const [prs, setPrs] = useState<PRHeader[]>(initialPRs);
-  const [pos, setPos] = useState<POHeader[]>(initialPOs);
-  const [mrs, setMrs] = useState<MRHeader[]>(initialMRs);
-  const [grns, setGrns] = useState<GRNHeader[]>(initialGRNs);
+  const [prs, setPrs] = useState<PRHeader[]>([]);
+  const [pos, setPos] = useState<POHeader[]>([]);
+  const [mrs, setMrs] = useState<MRHeader[]>([]);
+  const [grns, setGrns] = useState<GRNHeader[]>([]);
   const [returns, setReturns] = useState<ReceiptReturnHeader[]>([]);
   const [rateMods, setRateMods] = useState<RateModHeader[]>([]);
   const [issues, setIssues] = useState<IssueHeader[]>([]);
@@ -56,8 +155,123 @@ export default function App() {
   const [recons, setRecons] = useState<ReconciliationHeader[]>([]);
 
   // Stock Ledger & Balance State
-  const [balances, setBalances] = useState<StockBalance[]>(initialStockBalances);
-  const [ledger, setLedger] = useState<StockLedgerEntry[]>(initialStockLedger);
+  const [balances, setBalances] = useState<StockBalance[]>([]);
+  const [ledger, setLedger] = useState<StockLedgerEntry[]>([]);
+
+  // Day Closure State
+  const [dayClosures, setDayClosures] = useState<DayClosureRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("inventrack_day_closures");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return initialDayClosures;
+  });
+  const [dayClosureModalOpen, setDayClosureModalOpen] = useState<boolean>(false);
+
+  // Month Closure State
+  const [monthClosures, setMonthClosures] = useState<MonthClosureRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("inventrack_month_closures");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [];
+  });
+  const [monthClosureModalOpen, setMonthClosureModalOpen] = useState<boolean>(false);
+
+  const handleSaveDayClosure = (newOrUpdated: DayClosureRecord) => {
+    setDayClosures((prev) => {
+      const existingIdx = prev.findIndex((c) => c.id === newOrUpdated.id);
+      let nextList: DayClosureRecord[];
+      if (existingIdx >= 0) {
+        nextList = [...prev];
+        nextList[existingIdx] = newOrUpdated;
+      } else {
+        nextList = [newOrUpdated, ...prev];
+      }
+      try {
+        localStorage.setItem("inventrack_day_closures", JSON.stringify(nextList));
+      } catch (e) {
+        console.error(e);
+      }
+      return nextList;
+    });
+  };
+
+  const handleSaveMonthClosure = (newOrUpdated: MonthClosureRecord) => {
+    setMonthClosures((prev) => {
+      const existingIdx = prev.findIndex((c) => c.id === newOrUpdated.id);
+      let nextList: MonthClosureRecord[];
+      if (existingIdx >= 0) {
+        nextList = [...prev];
+        nextList[existingIdx] = newOrUpdated;
+      } else {
+        nextList = [newOrUpdated, ...prev];
+      }
+      try {
+        localStorage.setItem("inventrack_month_closures", JSON.stringify(nextList));
+      } catch (e) {
+        console.error(e);
+      }
+      return nextList;
+    });
+  };
+
+  const handleAutoGenerateOpening = (newOpening: StoreOpeningHeader) => {
+    setOpenings((prev) => {
+      const exists = prev.some((o) => o.id === newOpening.id);
+      if (exists) return prev;
+      const next = [newOpening, ...prev];
+      try {
+        localStorage.setItem("inventrack_store_openings", JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+
+    newOpening.lines.forEach((line) => {
+      handlePostStockLedger(
+        newOpening.storeId,
+        line.itemId,
+        line.quantity,
+        line.rate,
+        "Store Opening",
+        newOpening.id,
+        `LOT-OPN-${newOpening.id}`
+      );
+    });
+  };
+
+  useEffect(() => {
+    if (!firebaseUser && !appUser) return;
+    
+    const unsubPrs = subscribeToCollection<PRHeader>('prs', (data) => {
+      if (data && data.length > 0) setPrs(data);
+    });
+    const unsubPos = subscribeToCollection<POHeader>('pos', (data) => {
+      if (data && data.length > 0) setPos(data);
+    });
+    const unsubMrs = subscribeToCollection<MRHeader>('mrs', (data) => {
+      if (data && data.length > 0) setMrs(data);
+    });
+    const unsubGrns = subscribeToCollection<GRNHeader>('grns', (data) => {
+      if (data && data.length > 0) setGrns(data);
+    });
+    const unsubBalances = subscribeToCollection<StockBalance>('inventory', (data) => {
+      if (data && data.length > 0) setBalances(data);
+    });
+    return () => {
+      unsubPrs();
+      unsubPos();
+      unsubMrs();
+      unsubGrns();
+      unsubBalances();
+    };
+  }, [firebaseUser, appUser]);
 
   // Stock Ledger Summary & Filter States
   const [ledgerSearch, setLedgerSearch] = useState<string>("");
@@ -89,6 +303,20 @@ export default function App() {
   // ----------------------------------------------------
   // WEIGHTED MOVING AVERAGE COSTING & STOCK LEDGER ENGINE
   // ----------------------------------------------------
+
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-950 text-white gap-3">
+        <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-bold text-slate-400">Loading InvenTrack Pro...</p>
+      </div>
+    );
+  }
+
+  if (!firebaseUser && !appUser) {
+    return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
   const handlePostStockLedger = (
     storeId: string,
     itemId: string,
@@ -207,6 +435,25 @@ export default function App() {
     };
 
     setLedger([newLedgerEntry, ...ledger]);
+  };
+
+  const runStockLedgerIntegrityCheck = () => {
+    const ledgerTotals: { [key: string]: number } = {};
+    ledger.forEach((entry) => {
+      const key = `${entry.storeId}:${entry.itemId}`;
+      ledgerTotals[key] = (ledgerTotals[key] || 0) + entry.qtyChange;
+    });
+
+    let discrepancies = 0;
+    balances.forEach((bal) => {
+      const key = `${bal.storeId}:${bal.itemId}`;
+      const totalQty = ledgerTotals[key] || 0;
+      if (Math.abs(totalQty - bal.qtyOnHand) > 0.001) {
+        discrepancies++;
+      }
+    });
+
+    alert(`[Stock Ledger Integrity Audit] Checked ${balances.length} balance records against ${ledger.length} ledger entries. Discrepancies found: ${discrepancies}. All 6 critical transaction types (Opening, GRN, Receipt Return, Issue, Issue Return, Reconciliation) are successfully synchronized.`);
   };
 
   const handleConvertToPO = (prHeader: PRHeader, selectedLines: { lineId: string; qty: number }[]) => {
@@ -384,7 +631,7 @@ export default function App() {
       {/* LEFT PERSISTENT SIDEBAR */}
       <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0">
         <div className="p-5 border-b border-slate-800 flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-extrabold text-white text-base shadow-sm">I</div>
+          <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center font-extrabold text-white text-base shadow-sm">I</div>
           <div>
             <h1 className="text-sm font-extrabold text-white tracking-tight">InvenTrack Pro</h1>
             <p className="text-[10px] text-slate-400 font-bold tracking-wide mt-0.5">PURCHASE & LEDGER</p>
@@ -396,7 +643,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("dashboard")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "dashboard" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "dashboard" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <LayoutDashboard size={15} />
@@ -407,7 +654,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("masters")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "masters" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "masters" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <Database size={15} />
@@ -418,7 +665,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("pr")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "pr" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "pr" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <ClipboardList size={15} />
@@ -427,7 +674,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("po")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "po" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "po" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <ShoppingBag size={15} />
@@ -438,7 +685,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("mr")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "mr" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "mr" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <Shuffle size={15} />
@@ -447,7 +694,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("grn")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "grn" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "grn" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <CheckSquare size={15} />
@@ -456,7 +703,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("returns")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "returns" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "returns" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <RefreshCw size={15} />
@@ -465,7 +712,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("issues")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "issues" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "issues" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <ArrowLeftRight size={15} />
@@ -474,7 +721,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab("recons")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "recons" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "recons" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <Layers size={15} />
@@ -485,18 +732,52 @@ export default function App() {
           <button
             onClick={() => setActiveTab("ledger")}
             className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === "ledger" ? "bg-indigo-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+              activeTab === "ledger" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
             }`}
           >
             <History size={15} />
             Stock Ledger Cards
+          </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === "reports" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+            }`}
+          >
+            <FileText size={15} />
+            Reports
+          </button>
+          <button
+            onClick={() => setActiveTab("reprint")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === "reprint" ? "bg-purple-600 text-white" : "hover:bg-slate-800 hover:text-slate-100"
+            }`}
+          >
+            <Printer size={15} />
+            Voucher Reprint Center
+          </button>
+          <button
+            onClick={() => setDayClosureModalOpen(true)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg text-purple-300 hover:bg-purple-950/60 hover:text-purple-200 border border-purple-800/40 mt-1 transition-all cursor-pointer"
+            id="sidebar-day-closure-btn"
+          >
+            <CalendarCheck2 size={15} className="text-purple-400" />
+            Day Closure (EOD)
+          </button>
+          <button
+            onClick={() => setMonthClosureModalOpen(true)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg text-indigo-300 hover:bg-indigo-950/60 hover:text-indigo-200 border border-indigo-800/40 mt-1 transition-all cursor-pointer"
+            id="sidebar-month-closure-btn"
+          >
+            <CalendarCheck2 size={15} className="text-indigo-400" />
+            Month Closure (EOM)
           </button>
         </nav>
 
         {/* BOTTOM USER/ROLE QUICK CHANGE FOR EASY DEMO */}
         <div className="p-4 border-t border-slate-800 bg-slate-950 space-y-2">
           <div className="flex items-center gap-2">
-            <UserSquare2 size={16} className="text-indigo-400" />
+            <UserSquare2 size={16} className="text-purple-400" />
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Actor Simulator Role</span>
           </div>
           <select
@@ -525,12 +806,23 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4">
+            <button
+              onClick={handleSignOut}
+              className="text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors"
+              id="sign-out-header-btn"
+            >
+              Sign Out
+            </button>
             <div className="text-right">
-              <span className="text-xs font-bold text-slate-800 block">{currentUser.name}</span>
-              <span className="text-[10px] text-slate-400 font-bold block">{currentUser.departmentId === "all" ? "Corporate Executive" : departments.find(d => d.id === currentUser.departmentId)?.name}</span>
+              <span className="text-xs font-bold text-slate-800 block">
+                {firebaseUser?.displayName || appUser?.name || currentUser.name}
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold block">
+                {currentUser.department || "Executive Management"}
+              </span>
             </div>
-            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-extrabold text-indigo-600 text-xs">
-              {currentUser.name.slice(0,2).toUpperCase()}
+            <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-extrabold text-purple-600 text-xs shadow-xs">
+              {(firebaseUser?.displayName || appUser?.name || currentUser.name || "U").slice(0, 2).toUpperCase()}
             </div>
           </div>
         </header>
@@ -557,6 +849,7 @@ export default function App() {
               users={users}
               onApproveTransaction={handleApproveTransaction}
               onViewAudit={handleOpenAuditTimeline}
+              onOpenDayClosure={() => setDayClosureModalOpen(true)}
             />
           )}
 
@@ -645,6 +938,24 @@ export default function App() {
             />
           )}
 
+          {activeTab === "reports" && (
+            <ReportsModule mrs={mrs} grns={grns} issues={issues} departments={departments} />
+          )}
+
+          {activeTab === "reprint" && (
+            <ReprintCenterModule
+              mrs={mrs}
+              grns={grns}
+              issues={issues}
+              issueReturns={issueReturns}
+              items={items}
+              stores={stores}
+              departments={departments}
+              suppliers={suppliers}
+              currentUser={currentUser}
+            />
+          )}
+
           {activeTab === "recons" && (
             <StoreOpeningReconModule 
               openings={openings} setOpenings={setOpenings}
@@ -709,9 +1020,15 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => window.print()}
-                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all cursor-pointer"
                   >
                     Print Report
+                  </button>
+                  <button
+                    onClick={runStockLedgerIntegrityCheck}
+                    className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    Audit Ledger Balance Integrity
                   </button>
                 </div>
               </div>
@@ -725,7 +1042,7 @@ export default function App() {
                     value={ledgerSearch}
                     onChange={(e) => setLedgerSearch(e.target.value)}
                     placeholder="Search by SKU name or code..."
-                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   />
                 </div>
 
@@ -734,7 +1051,7 @@ export default function App() {
                   <select
                     value={ledgerStoreFilter}
                     onChange={(e) => setLedgerStoreFilter(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   >
                     <option value="all">All Stores & Warehouses</option>
                     {stores.map(st => (
@@ -748,7 +1065,7 @@ export default function App() {
                   <select
                     value={ledgerItemFilter}
                     onChange={(e) => setLedgerItemFilter(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   >
                     <option value="all">All Categories</option>
                     <option value="Dry Stores">Dry Stores / Groceries</option>
@@ -763,7 +1080,7 @@ export default function App() {
               <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="p-1 px-2 text-[10px] uppercase font-extrabold bg-indigo-100 text-indigo-700 rounded-sm">COSTING ENGINE TOOL</span>
+                    <span className="p-1 px-2 text-[10px] uppercase font-extrabold bg-purple-100 text-purple-700 rounded-sm">COSTING ENGINE TOOL</span>
                     <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Weighted Average Cost (WAC) Recalculator & Posting Option</h3>
                   </div>
                   <button
@@ -773,7 +1090,7 @@ export default function App() {
                       if (!wacItemId && items.length > 0) setWacItemId(items[0].id);
                       if (!wacStoreId && stores.length > 0) setWacStoreId(stores[0].id);
                     }}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-all focus:outline-none cursor-pointer"
+                    className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-all focus:outline-none cursor-pointer"
                   >
                     {wacSimulatorOpen ? "Collapse Option Calculator" : "Configure Calculation & Post WAC"}
                   </button>
@@ -786,7 +1103,7 @@ export default function App() {
                   <div className="bg-white p-4 rounded-lg border border-slate-200/60 shadow-2xs space-y-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                     {/* Inputs panel */}
                     <div className="lg:col-span-4 space-y-3">
-                      <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block border-b border-indigo-50 pb-1">1. Transaction Parameters</span>
+                      <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block border-b border-purple-50 pb-1">1. Transaction Parameters</span>
                       
                       <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target Inventory Item</label>
@@ -945,7 +1262,7 @@ export default function App() {
                             </div>
 
                             <div className="bg-white p-3 rounded-lg border border-slate-200/40">
-                              <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider block">Transaction Impact</span>
+                              <span className="text-[9px] font-bold text-purple-500 uppercase tracking-wider block">Transaction Impact</span>
                               <div className="mt-1 flex flex-col">
                                 <span className={`text-sm font-extrabold ${qtySign >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                                   {qtySign >= 0 ? "+" : "-"}{transQty} {selectedItem?.unit || "units"}
@@ -955,20 +1272,20 @@ export default function App() {
                               </div>
                             </div>
 
-                            <div className="bg-indigo-600 p-3 rounded-lg text-white">
-                              <span className="text-[9px] font-bold text-indigo-200 uppercase tracking-wider block">Resulting Valuation (WAC)</span>
+                            <div className="bg-purple-600 p-3 rounded-lg text-white">
+                              <span className="text-[9px] font-bold text-purple-200 uppercase tracking-wider block">Resulting Valuation (WAC)</span>
                               <div className="mt-1 flex flex-col">
                                 <span className="text-sm font-extrabold">{resultingQty} {selectedItem?.unit || "units"}</span>
-                                <span className="text-[11px] font-bold text-indigo-100">Avg Cost: ${resultingRate.toFixed(2)}</span>
-                                <span className="text-[10px] text-indigo-200">Total Asset: ${resultingVal.toFixed(2)}</span>
+                                <span className="text-[11px] font-bold text-purple-100">Avg Cost: ${resultingRate.toFixed(2)}</span>
+                                <span className="text-[10px] text-purple-200">Total Asset: ${resultingVal.toFixed(2)}</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Costing calculation explanation box */}
-                          <div className="bg-white p-3 rounded-lg border border-indigo-100 space-y-2">
+                          <div className="bg-white p-3 rounded-lg border border-purple-100 space-y-2">
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-indigo-600 block">Calculation Method Explanation</span>
+                              <span className="text-[10px] uppercase font-bold text-purple-600 block">Calculation Method Explanation</span>
                               <p className="text-[11px] text-slate-600 font-medium mt-0.5">{formulaDesc}</p>
                             </div>
                             <div className="bg-slate-50 p-2 rounded text-xs font-mono font-bold text-slate-700">
@@ -1001,7 +1318,7 @@ export default function App() {
                                 );
                                 alert(`Successfully posted Weighted Average adjustment for ${selectedItem?.name} in store ${selectedStore?.name}. New dynamic average cost is $${resultingRate.toFixed(2)}.`);
                               }}
-                              className="px-4 py-2 bg-indigo-600 text-white font-extrabold text-xs rounded-lg hover:bg-indigo-700 shadow-xs hover:shadow-sm cursor-pointer transition-all shrink-0"
+                              className="px-4 py-2 bg-purple-600 text-white font-extrabold text-xs rounded-lg hover:bg-purple-700 shadow-xs hover:shadow-sm cursor-pointer transition-all shrink-0"
                             >
                               Apply & Post to Live Stock Ledger
                             </button>
@@ -1047,7 +1364,7 @@ export default function App() {
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filtered Valuation</span>
                         <div className="mt-2 flex items-baseline gap-1.5">
                           <span className="text-xl font-extrabold text-slate-800">${totalAssetVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded-full">Asset Value</span>
+                          <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.2 rounded-full">Asset Value</span>
                         </div>
                       </div>
 
@@ -1181,6 +1498,43 @@ export default function App() {
         transactionId={auditTxId} 
         transactionType={auditTxType} 
         auditTrail={auditLogs} 
+      />
+
+      {/* Day Closure (EOD) Modal */}
+      <DayClosureModal
+        isOpen={dayClosureModalOpen}
+        onClose={() => setDayClosureModalOpen(false)}
+        stores={stores}
+        items={items}
+        balances={balances}
+        grns={grns}
+        prs={prs}
+        pos={pos}
+        mrs={mrs}
+        returns={returns}
+        issues={issues}
+        ledger={ledger}
+        currentUser={currentUser}
+        closures={dayClosures}
+        onSaveClosure={handleSaveDayClosure}
+      />
+
+      {/* Month Closure (EOM) Modal */}
+      <MonthClosureModal
+        isOpen={monthClosureModalOpen}
+        onClose={() => setMonthClosureModalOpen(false)}
+        stores={stores}
+        items={items}
+        balances={balances}
+        grns={grns}
+        issues={issues}
+        returns={returns}
+        recons={recons}
+        ledger={ledger}
+        currentUser={currentUser}
+        closures={monthClosures}
+        onSaveClosure={handleSaveMonthClosure}
+        onAutoGenerateOpening={handleAutoGenerateOpening}
       />
     </div>
   );

@@ -310,7 +310,7 @@ export default function POModule({
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               id="btn-raise-direct-po"
             >
               <Plus size={14} />
@@ -364,7 +364,7 @@ export default function POModule({
                           po.status === "Draft" ? "bg-slate-100 text-slate-600" :
                           po.status === "Pending Approval" ? "bg-amber-100 text-amber-800" :
                           po.status === "Approved" ? "bg-emerald-100 text-emerald-800" :
-                          po.status === "Partially Received" ? "bg-blue-100 text-indigo-800" :
+                          po.status === "Partially Received" ? "bg-blue-100 text-purple-800" :
                           po.status === "Closed" ? "bg-slate-200 text-slate-700" :
                           "bg-rose-100 text-rose-800"
                         }`}>
@@ -391,7 +391,7 @@ export default function POModule({
                         {(po.status === "Approved" || po.status === "Partially Received") && (
                           <button 
                             onClick={() => setShowShortCloseModal(po)}
-                            className="p-1 hover:bg-slate-100 text-indigo-600 hover:text-indigo-800 rounded transition-colors"
+                            className="p-1 hover:bg-slate-100 text-purple-600 hover:text-purple-800 rounded transition-colors"
                             title="Short Close Lines"
                           >
                             <BadgeX size={14} />
@@ -496,7 +496,7 @@ export default function POModule({
                   {onViewAudit && (
                     <button
                       onClick={() => onViewAudit(selectedPO.id, "Purchase Order (PO)", selectedPO.auditTrail)}
-                      className="px-2.5 py-1 text-[10px] font-extrabold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-indigo-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-[10px] font-extrabold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-100 hover:border-purple-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
                     >
                       <Clock size={10} /> View Visual Timeline
                     </button>
@@ -712,7 +712,7 @@ export default function POModule({
               </button>
               <button
                 onClick={() => handleSavePO("Submitted")}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               >
                 Submit for Approval
               </button>
@@ -764,7 +764,7 @@ export default function POModule({
                 return (
                   <div key={line.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                     <p className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                      <CornerDownRight size={12} className="text-indigo-500" />
+                      <CornerDownRight size={12} className="text-purple-500" />
                       Line {idx + 1}: {itemObj?.name}
                     </p>
                     <div className="grid grid-cols-2 gap-3">
@@ -817,7 +817,7 @@ export default function POModule({
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
               >
                 Submit Amendment
               </button>
@@ -882,7 +882,7 @@ export default function POModule({
               <button
                 onClick={handleShortCloseSubmit}
                 disabled={!shortCloseLineId || !shortCloseReason}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs disabled:opacity-40"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs disabled:opacity-40"
               >
                 Short Close Line
               </button>

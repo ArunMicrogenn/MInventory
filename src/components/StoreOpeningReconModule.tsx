@@ -214,7 +214,7 @@ export default function StoreOpeningReconModule({
           <button
             onClick={() => { setActiveTab("opening"); setSelectedDoc(null); }}
             className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-              activeTab === "opening" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+              activeTab === "opening" ? "bg-white text-purple-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
             }`}
           >
             Store Opening Seeding
@@ -232,7 +232,7 @@ export default function StoreOpeningReconModule({
         {activeTab === "opening" ? (
           <button
             onClick={() => setIsCreatingOpening(true)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
             id="btn-trigger-opening"
           >
             <Plus size={14} />
@@ -272,7 +272,7 @@ export default function StoreOpeningReconModule({
                       const storeObj = stores.find(s => s.id === op.storeId);
                       return (
                         <tr key={op.id} className="hover:bg-slate-50/50">
-                          <td className="p-3 font-mono font-bold text-indigo-700">{op.id}</td>
+                          <td className="p-3 font-mono font-bold text-purple-700">{op.id}</td>
                           <td className="p-3 font-semibold text-slate-700">{storeObj?.name}</td>
                           <td className="p-3">{op.openingDate}</td>
                           <td className="p-3">
@@ -360,8 +360,8 @@ export default function StoreOpeningReconModule({
 
               {selectedDoc.type === "Opening" ? (
                 <div className="space-y-4">
-                  <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg space-y-1 text-xs">
-                    <div className="flex justify-between font-bold text-indigo-800">
+                  <div className="p-3 bg-purple-50 border border-purple-100 rounded-lg space-y-1 text-xs">
+                    <div className="flex justify-between font-bold text-purple-800">
                       <span>Ledger Status:</span>
                       <span>OPENING-POSTED</span>
                     </div>
@@ -376,7 +376,7 @@ export default function StoreOpeningReconModule({
                           <div key={line.id} className="p-3 bg-slate-50 border border-slate-200/40 rounded-lg text-xs space-y-1">
                             <div className="flex justify-between font-bold text-slate-800">
                               <span>{itemObj?.name}</span>
-                              <span className="text-indigo-600 font-extrabold">+{line.quantity} {itemObj?.unit}</span>
+                              <span className="text-purple-600 font-extrabold">+{line.quantity} {itemObj?.unit}</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-100">
                               <span>Rate: ${line.rate.toFixed(2)}</span>
@@ -562,7 +562,7 @@ export default function StoreOpeningReconModule({
               </button>
               <button
                 onClick={handlePostOpening}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
               >
                 Post Opening Stock
               </button>
@@ -609,7 +609,7 @@ export default function StoreOpeningReconModule({
                 <button
                   type="button"
                   onClick={handleInitiateRecon}
-                  className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+                  className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
                 >
                   <RefreshCw size={14} />
                   Snapshot System Balances

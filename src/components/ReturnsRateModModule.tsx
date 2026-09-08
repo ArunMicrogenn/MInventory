@@ -310,7 +310,7 @@ export default function ReturnsRateModModule({
                           <td className="p-3 font-mono font-bold text-rose-700">{ret.id}</td>
                           <td className="p-3 font-mono text-slate-600">{ret.grnId}</td>
                           <td className="p-3 font-bold text-slate-700">{supObj?.name}</td>
-                          <td className="p-3 font-mono font-bold text-indigo-600">{ret.debitNoteRef || "Under Approval"}</td>
+                          <td className="p-3 font-mono font-bold text-purple-600">{ret.debitNoteRef || "Under Approval"}</td>
                           <td className="p-3">{ret.returnDate}</td>
                           <td className="p-3 text-right">
                             <button 
@@ -515,7 +515,7 @@ export default function ReturnsRateModModule({
                       <div key={line.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                         <div className="flex justify-between text-xs font-bold text-slate-800">
                           <span>{itemObj?.name}</span>
-                          <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">Net Receipt Open: {netReceived} {itemObj?.unit}</span>
+                          <span className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded">Net Receipt Open: {netReceived} {itemObj?.unit}</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 items-end">

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { GRNHeader, GRNLine, POHeader, POLine, Item, Store, Supplier, User, SystemConfig } from "../types";
 import { Plus, X, Eye, ShieldAlert, CheckCircle2, TrendingUp, AlertCircle, ShoppingCart } from "lucide-react";
+import PrintButton from "./PrintButton";
+import PrintDocumentModal from "./PrintDocumentModal";
 
 interface GRNModuleProps {
   grns: GRNHeader[];
@@ -36,6 +38,7 @@ export default function GRNModule({
   onPostStockLedger
 }: GRNModuleProps) {
   const [selectedGRN, setSelectedGRN] = useState<GRNHeader | null>(null);
+  const [printGRN, setPrintGRN] = useState<GRNHeader | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   // Form states
@@ -311,7 +314,7 @@ export default function GRNModule({
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               id="btn-post-new-grn"
             >
               <Plus size={14} />
@@ -351,7 +354,13 @@ export default function GRNModule({
                       <td className="p-3 font-bold text-slate-700">{supObj?.name || "N/A"}</td>
                       <td className="p-3">{grn.receivedDate}</td>
                       <td className="p-3 font-bold text-slate-700">${grn.grandTotal.toFixed(2)}</td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right flex items-center justify-end gap-1.5">
+                        <PrintButton
+                          variant="table-action"
+                          size="xs"
+                          title="Print / Reprint GRN Voucher"
+                          onClick={() => setPrintGRN(grn)}
+                        />
                         <button 
                           onClick={() => setSelectedGRN(grn)}
                           className="p-1 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded transition-colors"
@@ -377,9 +386,18 @@ export default function GRNModule({
                   <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400 font-mono">Detail Inspector</span>
                   <h3 className="text-sm font-bold text-slate-800">{selectedGRN.id} Details</h3>
                 </div>
-                <button onClick={() => setSelectedGRN(null)} className="text-slate-400 hover:text-slate-600 p-0.5">
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <PrintButton
+                    variant="secondary"
+                    size="xs"
+                    label="Print GRN"
+                    title="Print / Reprint Formal GRN Voucher"
+                    onClick={() => setPrintGRN(selectedGRN)}
+                  />
+                  <button onClick={() => setSelectedGRN(null)} className="text-slate-400 hover:text-slate-600 p-0.5">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Status Banner */}
@@ -468,7 +486,7 @@ export default function GRNModule({
                   type="button"
                   onClick={() => setGrnType("PO")}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    grnType === "PO" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500"
+                    grnType === "PO" ? "bg-white text-purple-600 shadow-xs" : "text-slate-500"
                   }`}
                 >
                   Receive against PO Contract
@@ -477,7 +495,7 @@ export default function GRNModule({
                   type="button"
                   onClick={() => setGrnType("Direct")}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${
-                    grnType === "Direct" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-500"
+                    grnType === "Direct" ? "bg-white text-purple-600 shadow-xs" : "text-slate-500"
                   }`}
                 >
                   Direct Receipt Exception
@@ -514,7 +532,7 @@ export default function GRNModule({
                           <div key={line.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
                             <div className="flex justify-between">
                               <h4 className="text-xs font-extrabold text-slate-800">{itemObj?.name}</h4>
-                              <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold">Contract Open: {openQty} {itemObj?.unit}</span>
+                              <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-bold">Contract Open: {openQty} {itemObj?.unit}</span>
                             </div>
 
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
@@ -711,7 +729,7 @@ export default function GRNModule({
               </button>
               <button
                 onClick={handlePostGRN}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
               >
                 Post Receipt & Stock-In
               </button>
@@ -719,6 +737,18 @@ export default function GRNModule({
           </div>
         </div>
       )}
+
+      {/* PRINT / REPRINT GRN MODAL */}
+      <PrintDocumentModal
+        isOpen={!!printGRN}
+        onClose={() => setPrintGRN(null)}
+        documentData={printGRN ? { type: "GRN", rawDoc: printGRN } : null}
+        items={items}
+        stores={stores}
+        departments={[]}
+        suppliers={suppliers}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

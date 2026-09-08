@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /prs/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /pos/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /mrs/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /grns/{id} {
+      allow read, write: if isSignedIn();
+    }
+    match /inventory/{id} {
+      allow read, write: if isSignedIn();
+    }
+  }
+}

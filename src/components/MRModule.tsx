@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { MRHeader, MRLine, Item, Store, Department, User, TransactionStatus, AuditLog } from "../types";
-import { Plus, X, Eye, FileEdit, Trash2, BadgeX, CornerDownRight, Clock } from "lucide-react";
+import { Plus, X, Eye, FileEdit, Trash2, BadgeX, CornerDownRight, Clock, Printer } from "lucide-react";
+import PrintButton from "./PrintButton";
+import PrintDocumentModal from "./PrintDocumentModal";
 
 interface MRModuleProps {
   mrs: MRHeader[];
@@ -22,6 +24,7 @@ export default function MRModule({
   onViewAudit
 }: MRModuleProps) {
   const [selectedMR, setSelectedMR] = useState<MRHeader | null>(null);
+  const [printMR, setPrintMR] = useState<MRHeader | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isAmending, setIsAmending] = useState<MRHeader | null>(null);
 
@@ -255,7 +258,7 @@ export default function MRModule({
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               id="btn-raise-mr"
             >
               <Plus size={14} />
@@ -291,7 +294,7 @@ export default function MRModule({
                         )}
                       </td>
                       <td className="p-3 font-bold text-slate-700">{storeObj?.name}</td>
-                      <td className="p-3 font-mono text-indigo-600 font-bold">{deptObj?.costCenter} ({deptObj?.name})</td>
+                      <td className="p-3 font-mono text-purple-600 font-bold">{deptObj?.costCenter} ({deptObj?.name})</td>
                       <td className="p-3">{mr.requiredDate}</td>
                       <td className="p-3 font-bold text-slate-700">${mr.estimatedValue.toFixed(2)}</td>
                       <td className="p-3">
@@ -299,7 +302,7 @@ export default function MRModule({
                           mr.status === "Draft" ? "bg-slate-100 text-slate-600" :
                           mr.status === "Pending Approval" ? "bg-amber-100 text-amber-800" :
                           mr.status === "Approved" ? "bg-emerald-100 text-emerald-800" :
-                          mr.status === "Partially Fulfilled" ? "bg-blue-100 text-indigo-800" :
+                          mr.status === "Partially Fulfilled" ? "bg-blue-100 text-purple-800" :
                           mr.status === "Closed" ? "bg-slate-200 text-slate-700" :
                           "bg-rose-100 text-rose-800"
                         }`}>
@@ -307,6 +310,12 @@ export default function MRModule({
                         </span>
                       </td>
                       <td className="p-3 text-right flex items-center justify-end gap-1.5">
+                        <PrintButton
+                          variant="table-action"
+                          size="xs"
+                          title="Print / Reprint MR Voucher"
+                          onClick={() => setPrintMR(mr)}
+                        />
                         <button 
                           onClick={() => setSelectedMR(mr)}
                           className="p-1 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded transition-colors"
@@ -326,7 +335,7 @@ export default function MRModule({
                         {(mr.status === "Approved" || mr.status === "Partially Fulfilled") && (
                           <button 
                             onClick={() => setShowShortCloseModal(mr)}
-                            className="p-1 hover:bg-slate-100 text-indigo-600 hover:text-indigo-800 rounded transition-colors"
+                            className="p-1 hover:bg-slate-100 text-purple-600 hover:text-purple-800 rounded transition-colors"
                             title="Short Close Line"
                           >
                             <BadgeX size={14} />
@@ -359,9 +368,18 @@ export default function MRModule({
                   <span className="text-[10px] font-bold tracking-wider uppercase text-slate-400 font-mono">Detail Inspector</span>
                   <h3 className="text-sm font-bold text-slate-800">{selectedMR.id} Details</h3>
                 </div>
-                <button onClick={() => setSelectedMR(null)} className="text-slate-400 hover:text-slate-600 p-0.5">
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <PrintButton
+                    variant="secondary"
+                    size="xs"
+                    label="Print MR"
+                    title="Print / Reprint Formal MR Voucher"
+                    onClick={() => setPrintMR(selectedMR)}
+                  />
+                  <button onClick={() => setSelectedMR(null)} className="text-slate-400 hover:text-slate-600 p-0.5">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Status banner */}
@@ -408,7 +426,7 @@ export default function MRModule({
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-bold text-slate-700">{line.quantity} {itemObj?.unit}</p>
-                          <p className="text-[10px] text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded inline-block font-bold">Issued: {line.issuedQty}</p>
+                          <p className="text-[10px] text-purple-600 bg-purple-50 px-1 py-0.2 rounded inline-block font-bold">Issued: {line.issuedQty}</p>
                         </div>
                       </div>
                     );
@@ -423,7 +441,7 @@ export default function MRModule({
                   {onViewAudit && (
                     <button
                       onClick={() => onViewAudit(selectedMR.id, "Material Request (MR)", selectedMR.auditTrail)}
-                      className="px-2.5 py-1 text-[10px] font-extrabold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-indigo-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-[10px] font-extrabold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-100 hover:border-purple-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
                     >
                       <Clock size={10} /> View Visual Timeline
                     </button>
@@ -607,7 +625,7 @@ export default function MRModule({
               </button>
               <button
                 onClick={() => handleSaveMR("Submitted")}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               >
                 Submit for Approval
               </button>
@@ -636,7 +654,7 @@ export default function MRModule({
                 return (
                   <div key={line.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                     <p className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                      <CornerDownRight size={12} className="text-indigo-500" />
+                      <CornerDownRight size={12} className="text-purple-500" />
                       Line {idx + 1}: {itemObj?.name}
                     </p>
                     <div className="grid grid-cols-1 gap-3">
@@ -672,7 +690,7 @@ export default function MRModule({
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
               >
                 Submit Amendment
               </button>
@@ -736,7 +754,7 @@ export default function MRModule({
               <button
                 onClick={handleShortCloseSubmit}
                 disabled={!shortCloseLineId || !shortCloseReason}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs disabled:opacity-40"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs disabled:opacity-40"
               >
                 Short Close Line
               </button>
@@ -793,6 +811,17 @@ export default function MRModule({
           </div>
         </div>
       )}
+
+      {/* PRINT / REPRINT DOCUMENT MODAL */}
+      <PrintDocumentModal
+        isOpen={!!printMR}
+        onClose={() => setPrintMR(null)}
+        documentData={printMR ? { type: "MR", rawDoc: printMR } : null}
+        items={items}
+        stores={stores}
+        departments={departments}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

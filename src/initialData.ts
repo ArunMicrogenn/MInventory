@@ -17,7 +17,8 @@ import {
   StoreOpeningHeader,
   ReconciliationHeader,
   StockLedgerEntry,
-  StockBalance
+  StockBalance,
+  DayClosureRecord
 } from "./types";
 
 export const initialUsers: User[] = [
@@ -563,5 +564,77 @@ export const initialStockBalances: StockBalance[] = [
     qtyOnHand: 30,
     movingAverageCost: 12.00,
     fifoQueue: [{ qty: 30, rate: 12.00 }]
+  }
+];
+
+export const initialDayClosures: DayClosureRecord[] = [
+  {
+    id: "EOD-20260907-ALL",
+    closureDate: "2026-09-07",
+    closedAt: "2026-09-07T23:45:00Z",
+    closedBy: "David Miller",
+    closedById: "U-03",
+    closedByRole: "Store Manager",
+    storeId: "all",
+    storeName: "All Locations (Consolidated)",
+    status: "Closed",
+    totalInventoryValuation: 1405.98,
+    totalGrnCount: 1,
+    totalGrnValue: 69.0,
+    totalIssueCount: 1,
+    totalIssueValue: 36.5,
+    totalReturnCount: 1,
+    pendingPrsCount: 0,
+    pendingPosCount: 0,
+    pendingApprovalsCount: 0,
+    stockLedgerEntriesCount: 3,
+    checklist: [
+      {
+        id: "check-draft-grns",
+        label: "Goods Receipts (GRN) Status",
+        description: "All inbound shipments received today have been verified and posted",
+        status: "Passed",
+        details: "1 GRN(s) posted today ($69.00)"
+      },
+      {
+        id: "check-draft-issues",
+        label: "Material Issues & Requisitions",
+        description: "Kitchen & department material issuances posted to ledger",
+        status: "Passed",
+        details: "1 issue slip(s) posted ($36.50)"
+      },
+      {
+        id: "check-ledger-sync",
+        label: "Stock Ledger Synchronization",
+        description: "Inventory balance changes accurately reflected in ledger cards",
+        status: "Passed",
+        details: "3 inventory ledger movement(s) processed for 2026-09-07"
+      },
+      {
+        id: "check-approvals",
+        label: "Pending Management Authorizations",
+        description: "PRs or POs awaiting signature before day lock",
+        status: "Passed",
+        details: "0 PR(s), 0 PO(s) in review queue"
+      },
+      {
+        id: "check-costing",
+        label: "Weighted Cost Engine Consistency",
+        description: "All inventory prices computed and balanced with zero negative stock",
+        status: "Passed",
+        details: "Consolidated stock valuation: $1,405.98"
+      }
+    ],
+    remarks: "Previous day reconciliation completed without variance. All kitchen evening issues posted.",
+    auditTrail: [
+      {
+        id: "AUD-EOD-01",
+        timestamp: "2026-09-07T23:45:00Z",
+        userId: "U-03",
+        userName: "David Miller",
+        action: "Day Closure Executed",
+        details: "Closed stock ledger for 2026-09-07 at All Locations (Consolidated)."
+      }
+    ]
   }
 ];

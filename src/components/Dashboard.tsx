@@ -26,7 +26,8 @@ import {
   Clock, 
   X,
   Layers,
-  Sparkles
+  Sparkles,
+  CalendarCheck2
 } from "lucide-react";
 import {
   BarChart,
@@ -57,6 +58,7 @@ interface DashboardProps {
   users: User[];
   onApproveTransaction: (type: string, id: string, action: "Approve" | "Reject" | "Return-for-correction", remark: string) => void;
   onViewAudit?: (id: string, type: string, trail: any[]) => void;
+  onOpenDayClosure?: () => void;
 }
 
 export default function Dashboard({
@@ -76,7 +78,8 @@ export default function Dashboard({
   setCurrentUser,
   users,
   onApproveTransaction,
-  onViewAudit
+  onViewAudit,
+  onOpenDayClosure
 }: DashboardProps) {
   const [remarkText, setRemarkText] = useState("");
   const [selectedTx, setSelectedTx] = useState<{ type: string; id: string; title: string; desc: string } | null>(null);
@@ -101,17 +104,36 @@ export default function Dashboard({
     pendingOpenings.length + 
     pendingReconciliations.length;
 
-  const lowStockItems = items.map(item => {
-    const totalQty = balances
-      .filter(b => b.itemId === item.id)
-      .reduce((sum, b) => sum + b.qtyOnHand, 0);
-    return {
-      itemId: item.id,
-      itemObj: item,
-      qtyOnHand: totalQty,
-      minLvl: item.minOrderLevel
-    };
-  }).filter(entry => entry.qtyOnHand <= entry.minLvl);
+  // Function that iterates through 'balances' state and cross-references them with 'Item' master data
+  // to identify items where 'qtyOnHand' <= 'minOrderLevel'
+  const getLowStockAlertItems = () => {
+    // Calculate total quantity on hand per item from the balances state
+    const itemBalanceMap: Record<string, number> = {};
+    balances.forEach((bal) => {
+      itemBalanceMap[bal.itemId] = (itemBalanceMap[bal.itemId] || 0) + (bal.qtyOnHand || 0);
+    });
+
+    // Cross-reference with the Item master data
+    return items
+      .map((item) => {
+        const qtyOnHand = itemBalanceMap[item.id] ?? 0;
+        const minOrderLevel = typeof item.minOrderLevel === "number" ? item.minOrderLevel : 0;
+        const isBelowOrAtMin = qtyOnHand <= minOrderLevel;
+        return {
+          item,
+          itemId: item.id,
+          itemObj: item,
+          qtyOnHand,
+          minOrderLevel,
+          minLvl: minOrderLevel,
+          deficit: Math.max(0, minOrderLevel - qtyOnHand),
+          isBelowOrAtMin,
+        };
+      })
+      .filter((entry) => entry.isBelowOrAtMin);
+  };
+
+  const lowStockItems = getLowStockAlertItems();
   const activePOs = pos.filter(p => p.status === "Approved" || p.status === "Partially Received");
   const openPRs = prs.filter(p => p.status === "Submitted" || p.status === "Pending Approval" || p.status === "Approved" || p.status === "Partially Fulfilled");
 
@@ -136,11 +158,97 @@ export default function Dashboard({
 
   return (
     <div className="space-y-6" id="dashboard-container">
-      {/* Top Welcome Bar */}
+      {/* Top Summary Card Section - System Health Overview */}
+      <div className="bg-white p-5 rounded-xl border border-slate-200/80 shadow-xs space-y-3" id="top-system-health-overview">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">System Health Overview</h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Real-time counts & valuation status</span>
+            {onOpenDayClosure && (
+              <button
+                onClick={onOpenDayClosure}
+                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs hover:shadow-sm flex items-center gap-1.5 cursor-pointer"
+                id="dashboard-day-closure-action-btn"
+              >
+                <CalendarCheck2 size={14} />
+                <span>Day Closure (EOD)</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" id="health-overview-cards">
+          {/* Card 1: Open PRs */}
+          <div className="bg-slate-50/80 hover:bg-slate-50 p-4 rounded-xl border border-slate-200/60 shadow-3xs flex items-center justify-between transition-colors" id="health-open-prs">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-purple-100 text-purple-700 rounded-xl shadow-xs">
+                <FileText size={22} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Open PRs</span>
+                <span className="text-2xl font-black text-slate-900 leading-tight block mt-0.5">{openPRs.length}</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/60">
+              Active Pipeline
+            </span>
+          </div>
+
+          {/* Card 2: Pending Approvals */}
+          <div className="bg-slate-50/80 hover:bg-slate-50 p-4 rounded-xl border border-slate-200/60 shadow-3xs flex items-center justify-between transition-colors" id="health-pending-approvals">
+            <div className="flex items-center gap-3.5">
+              <div className={`p-3 rounded-xl shadow-xs ${totalPendingApprovals > 0 ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-slate-200/70 text-slate-600'}`}>
+                <Inbox size={22} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Pending Approvals</span>
+                <span className="text-2xl font-black text-slate-900 leading-tight block mt-0.5">{totalPendingApprovals}</span>
+              </div>
+            </div>
+            {totalPendingApprovals > 0 ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/60 animate-pulse">
+                Action Required
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                All Cleared
+              </span>
+            )}
+          </div>
+
+          {/* Card 3: Total Inventory Value */}
+          <div className="bg-slate-50/80 hover:bg-slate-50 p-4 rounded-xl border border-slate-200/60 shadow-3xs flex items-center justify-between transition-colors" id="health-inventory-value">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-emerald-100 text-emerald-700 rounded-xl shadow-xs">
+                <TrendingUp size={22} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Inventory Value</span>
+                <span className="text-2xl font-black text-slate-900 leading-tight block mt-0.5">
+                  ${totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+              {config.costingMethod}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Welcome Bar */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between bg-white p-6 rounded-xl border border-slate-100 shadow-xs" id="welcome-bar">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-2 py-0.5 text-xs font-semibold uppercase bg-emerald-50 text-emerald-700 rounded-sm">PIM Live Platform</span>
+            {lowStockItems.length > 0 && (
+              <span className="px-2 py-0.5 text-xs font-bold uppercase bg-rose-600 text-white rounded-sm flex items-center gap-1 animate-pulse shadow-sm">
+                <AlertTriangle size={12} /> {lowStockItems.length} Low Stock Alert
+              </span>
+            )}
           </div>
           <h1 className="text-2xl font-bold text-slate-800 mt-1">Property Purchase & Inventory Console</h1>
           <p className="text-slate-500 text-sm mt-0.5">Real-time workflow enforcement, costing controls, and ledger updates.</p>
@@ -169,63 +277,6 @@ export default function Dashboard({
         </div>
       </div>
 
-      {/* Quick System Health Overview Section */}
-      <div className="bg-slate-50 p-5 rounded-xl border border-slate-200/60 shadow-2xs space-y-3" id="system-health-overview">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">System Health Overview</span>
-          <span className="text-[11px] text-slate-400 font-medium">Real-time status metrics of operational pipelines</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Card 1: Open PRs */}
-          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-open-prs">
-            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-              <FileText size={20} />
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Open PRs</span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-800">{openPRs.length}</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-50 text-indigo-700">Active</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Pending Approvals */}
-          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-pending-approvals">
-            <div className={`p-3 rounded-lg ${totalPendingApprovals > 0 ? 'bg-amber-50 text-amber-600 animate-pulse' : 'bg-slate-50 text-slate-400'}`}>
-              <Inbox size={20} />
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Pending Approvals</span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-800">{totalPendingApprovals}</span>
-                {totalPendingApprovals > 0 ? (
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-50 text-amber-700 animate-pulse">Action Req.</span>
-                ) : (
-                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-400">Clear</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Total Inventory Value */}
-          <div className="bg-white p-4 rounded-lg border border-slate-100 shadow-3xs flex items-center gap-4" id="health-inventory-value">
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-              <TrendingUp size={20} />
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Total Inventory Value</span>
-              <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-extrabold text-slate-800">${totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-50 text-emerald-700">FIFO/Avg</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Hero Analytics Ribbon */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="analytics-ribbon">
         <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-xs flex items-start justify-between" id="metric-stock-value">
@@ -234,7 +285,7 @@ export default function Dashboard({
             <span className="text-3xl font-extrabold text-slate-800 mt-2 block">${totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             <span className="text-xs text-slate-400 mt-1 block">Based on <span className="font-semibold text-slate-600">{config.costingMethod}</span> formula</span>
           </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
             <TrendingUp size={20} />
           </div>
         </div>
@@ -267,7 +318,7 @@ export default function Dashboard({
             <span className="text-3xl font-extrabold text-slate-800 mt-2 block">{activePOs.length}</span>
             <span className="text-xs text-slate-400 mt-1 block">Approved contracts in-transit</span>
           </div>
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
             <CheckCircle2 size={20} />
           </div>
         </div>
@@ -337,7 +388,7 @@ export default function Dashboard({
               <h2 className="text-sm font-bold text-slate-800">Capital Allocation by Store Locations</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">Visual representation of where aggregate capital budget is active in physical assets.</p>
             </div>
-            <span className="px-2 py-1 text-[10px] font-bold bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
+            <span className="px-2 py-1 text-[10px] font-bold bg-purple-50 text-purple-700 rounded border border-purple-100">
               Live Assets
             </span>
           </div>
@@ -428,7 +479,7 @@ export default function Dashboard({
                   <div key={pr.id} className="p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/50 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-100 text-indigo-700 rounded-sm">Requisition (PR)</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-100 text-purple-700 rounded-sm">Requisition (PR)</span>
                         <span className="text-xs font-mono font-bold text-slate-700">{pr.id}</span>
                       </div>
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Est. Budget: <span className="text-slate-800">${pr.estimatedValue.toFixed(2)}</span> • Store: {pr.storeId}</p>
@@ -438,7 +489,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(pr.id, "PR", pr.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -446,7 +497,7 @@ export default function Dashboard({
                       )}
                       <button 
                         onClick={() => setSelectedTx({ type: "PR", id: pr.id, title: `Authorize ${pr.id}`, desc: `Estimated Requisition Value: $${pr.estimatedValue.toFixed(2)}. Initiated by ${pr.requesterId}.` })}
-                        className="px-3.5 py-1.5 text-xs font-bold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 hover:border-indigo-600 rounded-lg transition-all"
+                        className="px-3.5 py-1.5 text-xs font-bold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-200 hover:border-purple-600 rounded-lg transition-all"
                       >
                         Process Transaction
                       </button>
@@ -459,7 +510,7 @@ export default function Dashboard({
                   <div key={po.id} className="p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/50 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-sm">Purchase Order (PO)</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-purple-100 text-purple-700 rounded-sm">Purchase Order (PO)</span>
                         <span className="text-xs font-mono font-bold text-slate-700">{po.id}</span>
                       </div>
                       <p className="text-xs font-semibold text-slate-600 mt-1.5">Supplier Total: <span className="text-slate-800">${po.grandTotal.toFixed(2)}</span> • Type: {po.purchaseType}</p>
@@ -469,7 +520,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(po.id, "PO", po.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -477,7 +528,7 @@ export default function Dashboard({
                       )}
                       <button 
                         onClick={() => setSelectedTx({ type: "PO", id: po.id, title: `Authorize ${po.id}`, desc: `Contract Sum: $${po.grandTotal.toFixed(2)} with Supplier. Budget Category: ${po.purchaseType}.` })}
-                        className="px-3.5 py-1.5 text-xs font-bold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-200 hover:border-indigo-600 rounded-lg transition-all"
+                        className="px-3.5 py-1.5 text-xs font-bold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-200 hover:border-purple-600 rounded-lg transition-all"
                       >
                         Process Transaction
                       </button>
@@ -500,7 +551,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(mr.id, "MR", mr.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -531,7 +582,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(ret.id, "Receipt Return", ret.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -562,7 +613,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(rm.id, "Rate Modification", rm.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -593,7 +644,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(op.id, "Opening Balance", op.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -624,7 +675,7 @@ export default function Dashboard({
                       {onViewAudit && (
                         <button 
                           onClick={() => onViewAudit(rec.id, "Reconciliation", rec.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
                           <Clock size={14} />
@@ -656,12 +707,12 @@ export default function Dashboard({
 
           <div className="mt-5 space-y-5 flex-1" id="config-form-sections">
             {/* Costing Algorithm Toggle */}
-            <div className="p-4 bg-indigo-50/50 border border-blue-100 rounded-xl" id="costing-formula-selector">
-              <label className="text-xs font-bold text-indigo-800 uppercase tracking-wide flex items-center gap-1.5">
+            <div className="p-4 bg-purple-50/50 border border-blue-100 rounded-xl" id="costing-formula-selector">
+              <label className="text-xs font-bold text-purple-800 uppercase tracking-wide flex items-center gap-1.5">
                 <Layers size={14} />
                 Asset Costing Method
               </label>
-              <p className="text-[11px] text-indigo-600 mt-0.5">Governs materials issue valuation and rate correction re-calculations.</p>
+              <p className="text-[11px] text-purple-600 mt-0.5">Governs materials issue valuation and rate correction re-calculations.</p>
               
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <button
@@ -669,7 +720,7 @@ export default function Dashboard({
                   onClick={() => setConfig({ ...config, costingMethod: "Moving Average" })}
                   className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all text-center ${
                     config.costingMethod === "Moving Average"
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                   id="btn-costing-moving-average"
@@ -681,7 +732,7 @@ export default function Dashboard({
                   onClick={() => setConfig({ ...config, costingMethod: "FIFO" })}
                   className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all text-center ${
                     config.costingMethod === "FIFO"
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
                       : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                   }`}
                   id="btn-costing-fifo"
@@ -695,7 +746,7 @@ export default function Dashboard({
             <div className="space-y-1" id="config-over-receipt">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-700">GRN Over-receipt Tolerance</label>
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{config.overReceiptTolerancePct}%</span>
+                <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{config.overReceiptTolerancePct}%</span>
               </div>
               <p className="text-[11px] text-slate-400">Block receipts exceeding PO quantity by more than this limit.</p>
               <input 
@@ -705,7 +756,7 @@ export default function Dashboard({
                 step="5"
                 value={config.overReceiptTolerancePct}
                 onChange={(e) => setConfig({ ...config, overReceiptTolerancePct: parseInt(e.target.value) })}
-                className="w-full accent-indigo-600 mt-1 cursor-pointer"
+                className="w-full accent-purple-600 mt-1 cursor-pointer"
                 id="input-tolerance-overreceipt"
               />
             </div>
@@ -714,7 +765,7 @@ export default function Dashboard({
             <div className="space-y-1" id="config-amendment">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-700">Amendment Value Limit</label>
-                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{config.amendmentTolerancePct}%</span>
+                <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{config.amendmentTolerancePct}%</span>
               </div>
               <p className="text-[11px] text-slate-400">Triggers re-approval if amendment increases overall contract sum by this %.</p>
               <input 
@@ -724,7 +775,7 @@ export default function Dashboard({
                 step="5"
                 value={config.amendmentTolerancePct}
                 onChange={(e) => setConfig({ ...config, amendmentTolerancePct: parseInt(e.target.value) })}
-                className="w-full accent-indigo-600 mt-1 cursor-pointer"
+                className="w-full accent-purple-600 mt-1 cursor-pointer"
                 id="input-tolerance-amendment"
               />
             </div>
@@ -739,7 +790,7 @@ export default function Dashboard({
                   type="number"
                   value={config.reconciliationThresholdValue}
                   onChange={(e) => setConfig({ ...config, reconciliationThresholdValue: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full pl-7 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
                   id="input-reconcile-threshold"
                 />
               </div>
@@ -755,7 +806,7 @@ export default function Dashboard({
                 type="checkbox" 
                 checked={config.freezeStoreDuringReconciliation}
                 onChange={(e) => setConfig({ ...config, freezeStoreDuringReconciliation: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500 cursor-pointer"
+                className="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500 cursor-pointer"
                 id="checkbox-freeze-store"
               />
             </div>
@@ -794,7 +845,7 @@ export default function Dashboard({
                   rows={3}
                   value={remarkText}
                   onChange={(e) => setRemarkText(e.target.value)}
-                  className="w-full p-2.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-700"
+                  className="w-full p-2.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 text-slate-700"
                   id="textarea-approval-comments"
                 />
               </div>

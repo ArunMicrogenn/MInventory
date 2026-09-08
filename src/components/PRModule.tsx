@@ -257,7 +257,7 @@ export default function PRModule({
             </div>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               id="btn-create-new-pr"
             >
               <Plus size={14} />
@@ -301,7 +301,7 @@ export default function PRModule({
                         pr.status === "Draft" ? "bg-slate-100 text-slate-600" :
                         pr.status === "Pending Approval" ? "bg-amber-100 text-amber-800" :
                         pr.status === "Approved" ? "bg-emerald-100 text-emerald-800" :
-                        pr.status === "Closed" ? "bg-blue-100 text-indigo-800" :
+                        pr.status === "Closed" ? "bg-blue-100 text-purple-800" :
                         "bg-rose-100 text-rose-800"
                       }`}>
                         {pr.status}
@@ -318,7 +318,7 @@ export default function PRModule({
                       {pr.status === "Approved" && pr.lines.some(l => l.quantity - l.poConvertedQty > 0) && (
                         <button 
                           onClick={() => triggerConversion(pr)}
-                          className="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-md transition-colors flex items-center gap-0.5"
+                          className="px-2 py-0.5 text-[10px] font-bold bg-purple-50 text-purple-600 border border-purple-200 hover:bg-purple-600 hover:text-white rounded-md transition-colors flex items-center gap-0.5"
                           title="Convert to Supplier PO"
                         >
                           PO <ArrowRight size={10} />
@@ -396,7 +396,7 @@ export default function PRModule({
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-bold text-slate-700">{line.quantity} {itemObj?.unit}</p>
-                          <p className="text-[10px] text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded inline-block font-bold">PO Converted: {line.poConvertedQty}</p>
+                          <p className="text-[10px] text-purple-600 bg-purple-50 px-1 py-0.2 rounded inline-block font-bold">PO Converted: {line.poConvertedQty}</p>
                         </div>
                       </div>
                     );
@@ -411,7 +411,7 @@ export default function PRModule({
                   {onViewAudit && (
                     <button
                       onClick={() => onViewAudit(selectedPR.id, "Requisition (PR)", selectedPR.auditTrail)}
-                      className="px-2.5 py-1 text-[10px] font-extrabold text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 border border-indigo-100 hover:border-indigo-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-[10px] font-extrabold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-100 hover:border-purple-600 rounded-sm transition-all cursor-pointer flex items-center gap-1"
                     >
                       <Clock size={10} /> View Visual Timeline
                     </button>
@@ -587,7 +587,7 @@ export default function PRModule({
               </button>
               <button
                 onClick={() => handleSavePR("Submitted")}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors shadow-xs"
               >
                 Submit for Approval
               </button>
@@ -616,7 +616,7 @@ export default function PRModule({
                 return (
                   <div key={line.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                     <p className="text-xs font-extrabold text-slate-800 flex items-center gap-1">
-                      <CornerDownRight size={12} className="text-indigo-500" />
+                      <CornerDownRight size={12} className="text-purple-500" />
                       Line {idx + 1}: {itemObj?.name}
                     </p>
                     <div className="grid grid-cols-2 gap-3">
@@ -681,7 +681,7 @@ export default function PRModule({
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
               >
                 Submit Amendment
               </button>
@@ -748,7 +748,7 @@ export default function PRModule({
               </button>
               <button
                 onClick={handleConvertSubmit}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
               >
                 Proceed with Conversion
               </button>
