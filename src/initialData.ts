@@ -124,9 +124,30 @@ export const initialStores: Store[] = [
 ];
 
 export const initialDepartments: Department[] = [
-  { id: "D-01", name: "Kitchen", costCenter: "CC-KIT" },
-  { id: "D-02", name: "Housekeeping", costCenter: "CC-HK" },
-  { id: "D-03", name: "Food & Beverage Service", costCenter: "CC-FBS" }
+  { 
+    id: "D-01", 
+    name: "Kitchen", 
+    costCenter: "CC-KIT",
+    headName: "Chef Marcus Beaumont",
+    headTitle: "Executive Chef & Culinary Director",
+    headEmail: "marcus.beaumont@grandregency.com"
+  },
+  { 
+    id: "D-02", 
+    name: "Housekeeping", 
+    costCenter: "CC-HK",
+    headName: "Elena Rostova",
+    headTitle: "Executive Housekeeper",
+    headEmail: "elena.rostova@grandregency.com"
+  },
+  { 
+    id: "D-03", 
+    name: "Food & Beverage Service", 
+    costCenter: "CC-FBS",
+    headName: "David Sterling",
+    headTitle: "Director of Food & Beverage",
+    headEmail: "david.sterling@grandregency.com"
+  }
 ];
 
 export const initialSuppliers: Supplier[] = [
@@ -293,6 +314,44 @@ export const initialPOs: POHeader[] = [
         details: "Approved regular PO under $10,000 threshold."
       }
     ]
+  },
+  {
+    id: "PO-2026-0002",
+    propertyId: "PROP-01",
+    supplierId: "SP-02",
+    purchaseType: "Regular",
+    deliveryStoreId: "S-02",
+    paymentTerms: "Net 30",
+    deliveryDate: "2026-09-28",
+    status: "Pending Approval",
+    lines: [
+      {
+        id: "POL-002",
+        itemId: "I-03",
+        quantity: 50,
+        rate: 11.50,
+        taxPct: 5,
+        discountPct: 2,
+        receivedQty: 0,
+        isShortClosed: false,
+        sourcePRLineId: "PRL-003"
+      }
+    ],
+    subTotal: 575.0,
+    discountTotal: 11.5,
+    taxTotal: 28.18,
+    grandTotal: 591.68,
+    amendmentNumber: 0,
+    auditTrail: [
+      {
+        id: "AUD-PO-02",
+        timestamp: "2026-09-06T10:30:00Z",
+        userId: "U-05",
+        userName: "Peter Purchase",
+        action: "Submitted",
+        details: "PO submitted for Financial Controller authorization."
+      }
+    ]
   }
 ];
 
@@ -300,6 +359,7 @@ export const initialPOs: POHeader[] = [
 export const initialMRs: MRHeader[] = [
   {
     id: "MR-2026-0001",
+    propertyId: "PROP-01",
     fromStoreId: "S-01",
     requestingDeptId: "D-01",
     status: "Approved",
@@ -342,6 +402,37 @@ export const initialMRs: MRHeader[] = [
         details: "MR approved."
       }
     ]
+  },
+  {
+    id: "MR-2026-0002",
+    propertyId: "PROP-01",
+    fromStoreId: "S-02",
+    requestingDeptId: "D-02",
+    status: "Pending Approval",
+    requiredDate: "2026-09-18",
+    purpose: "VIP Guest Suite deep cleaning cycle",
+    remarks: "High priority - conference delegation arriving",
+    lines: [
+      {
+        id: "MRL-003",
+        itemId: "I-03",
+        quantity: 10,
+        issuedQty: 0,
+        isShortClosed: false
+      }
+    ],
+    estimatedValue: 120.0,
+    amendmentNumber: 0,
+    auditTrail: [
+      {
+        id: "AUD-MR-02",
+        timestamp: "2026-09-07T08:30:00Z",
+        userId: "U-03",
+        userName: "Sarah Storekeeper",
+        action: "Submitted",
+        details: "Housekeeping MR submitted for Store Manager verification."
+      }
+    ]
   }
 ];
 
@@ -349,6 +440,7 @@ export const initialMRs: MRHeader[] = [
 export const initialGRNs: GRNHeader[] = [
   {
     id: "GRN-2026-0001",
+    propertyId: "PROP-01",
     sourcePOId: "PO-2026-0001",
     deliveryStoreId: "S-01",
     supplierId: "SP-01",
@@ -374,7 +466,57 @@ export const initialGRNs: GRNHeader[] = [
     subTotal: 69.0, // 30 * 2.30
     taxTotal: 3.45,
     discountTotal: 0,
-    grandTotal: 72.45
+    grandTotal: 72.45,
+    auditTrail: [
+      {
+        id: "AUD-GRN-01",
+        timestamp: "2026-09-04T14:00:00Z",
+        userId: "U-03",
+        userName: "Sarah Storekeeper",
+        action: "Posted",
+        details: "Material received at Loading Dock 1."
+      }
+    ]
+  },
+  {
+    id: "GRN-2026-0002",
+    propertyId: "PROP-01",
+    sourcePOId: "PO-2026-0001",
+    deliveryStoreId: "S-01",
+    supplierId: "SP-01",
+    receivedDate: "2026-09-08",
+    isDirect: false,
+    status: "Pending Approval",
+    lines: [
+      {
+        id: "GRNL-002",
+        itemId: "I-01",
+        orderedQty: 40,
+        receivedQty: 10,
+        rate: 2.30,
+        taxPct: 5,
+        discountPct: 0,
+        batchLotNumber: "LOT-TOM-02",
+        expiryDate: "2026-10-01",
+        qcPassed: true,
+        returnedQty: 0,
+        sourcePOLineId: "POL-001"
+      }
+    ],
+    subTotal: 23.0,
+    taxTotal: 1.15,
+    discountTotal: 0,
+    grandTotal: 24.15,
+    auditTrail: [
+      {
+        id: "AUD-GRN-02",
+        timestamp: "2026-09-08T11:20:00Z",
+        userId: "U-03",
+        userName: "Sarah Storekeeper",
+        action: "Submitted for Approval",
+        details: "Physical shipment received and QC verified. Awaiting Goods Inward Manager sign-off before posting to stock ledger."
+      }
+    ]
   }
 ];
 
@@ -643,6 +785,115 @@ export const initialDayClosures: DayClosureRecord[] = [
         userName: "David Miller",
         action: "Day Closure Executed",
         details: "Closed stock ledger for 2026-09-07 at All Locations (Consolidated)."
+      }
+    ]
+  }
+];
+
+import { FBRecipe, FBProductionRequest } from "./components/FBProductionModule";
+
+export const initialRecipes: FBRecipe[] = [
+  {
+    id: "REC-01",
+    name: "Hyderabadi Veg Biryani (Batch of 25 Portions)",
+    category: "Main Course",
+    standardPortions: 25,
+    unit: "Portions",
+    ingredients: [
+      { itemId: "I-01", standardQty: 12.5 },
+      { itemId: "I-02", standardQty: 4.0 },
+      { itemId: "I-03", standardQty: 2.5 }
+    ]
+  },
+  {
+    id: "REC-02",
+    name: "Signature Non-Veg Chicken Gravy (Batch of 30 Portions)",
+    category: "Main Course",
+    standardPortions: 30,
+    unit: "Portions",
+    ingredients: [
+      { itemId: "I-01", standardQty: 15.0 },
+      { itemId: "I-02", standardQty: 6.0 }
+    ]
+  },
+  {
+    id: "REC-03",
+    name: "Mutton Rogan Josh (Batch of 20 Portions)",
+    category: "Main Course",
+    standardPortions: 20,
+    unit: "Portions",
+    ingredients: [
+      { itemId: "I-01", standardQty: 10.0 },
+      { itemId: "I-03", standardQty: 3.0 }
+    ]
+  }
+];
+
+export const initialProductionRequests: FBProductionRequest[] = [
+  {
+    id: "PROD-2026-0001",
+    propertyId: "PROP-01",
+    recipeId: "REC-01",
+    recipeName: "Hyderabadi Veg Biryani (Batch of 25 Portions)",
+    targetPortions: 50,
+    departmentId: "D-01",
+    storeId: "S-01",
+    requiredDate: "2026-09-15",
+    status: "Approved",
+    requesterId: "U-01",
+    requesterName: "Chef John Doe",
+    remarks: "Banquet lunch for VIP corporate guests",
+    estimatedCost: 340.00,
+    ingredients: [
+      { itemId: "I-01", requiredQty: 25, standardRate: 2.40 },
+      { itemId: "I-02", requiredQty: 8, standardRate: 45.00 },
+      { itemId: "I-03", requiredQty: 5, standardRate: 12.00 }
+    ],
+    auditTrail: [
+      {
+        id: "AUD-PROD-01",
+        timestamp: "2026-09-08T09:00:00Z",
+        userId: "U-01",
+        userName: "Chef John Doe",
+        action: "Submitted",
+        details: "Production request raised for 50 portions of Veg Biryani."
+      },
+      {
+        id: "AUD-PROD-02",
+        timestamp: "2026-09-08T11:30:00Z",
+        userId: "U-04",
+        userName: "Alice Finance",
+        action: "Approved",
+        details: "Production batch approved."
+      }
+    ]
+  },
+  {
+    id: "PROD-2026-0002",
+    propertyId: "PROP-01",
+    recipeId: "REC-02",
+    recipeName: "Signature Non-Veg Chicken Gravy (Batch of 30 Portions)",
+    targetPortions: 60,
+    departmentId: "D-01",
+    storeId: "S-01",
+    requiredDate: "2026-09-16",
+    status: "Pending Approval",
+    requesterId: "U-01",
+    requesterName: "Chef John Doe",
+    remarks: "Dinner buffet main course preparation",
+    estimatedCost: 620.00,
+    ingredients: [
+      { itemId: "I-01", requiredQty: 30, standardRate: 2.40 },
+      { itemId: "I-02", requiredQty: 12, standardRate: 45.00 }
+    ],
+    auditTrail: [
+      {
+        id: "AUD-PROD-03",
+        timestamp: "2026-09-09T08:15:00Z",
+        userId: "U-01",
+        userName: "Chef John Doe",
+        action: "Submitted",
+        details: "Production request raised for 60 portions of Non-Veg Chicken Gravy."
       }
     ]
   }

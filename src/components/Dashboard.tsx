@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   PRHeader,
   POHeader,
@@ -27,7 +27,12 @@ import {
   X,
   Layers,
   Sparkles,
-  CalendarCheck2
+  CalendarCheck2,
+  Flame,
+  Bell,
+  Zap,
+  Check,
+  ListChecks
 } from "lucide-react";
 import {
   BarChart,
@@ -57,14 +62,17 @@ interface DashboardProps {
   setCurrentUser: (u: User) => void;
   users: User[];
   onApproveTransaction: (type: string, id: string, action: "Approve" | "Reject" | "Return-for-correction", remark: string) => void;
+  onBulkApproveTransactions?: (items: { type: string; id: string }[], action: "Approve" | "Reject", remark: string) => void;
   onViewAudit?: (id: string, type: string, trail: any[]) => void;
   onOpenDayClosure?: () => void;
+  onOpenApprovals?: () => void;
 }
 
 export default function Dashboard({
   prs,
   pos,
   mrs,
+  grns,
   returns,
   rateMods,
   openings,
@@ -78,11 +86,20 @@ export default function Dashboard({
   setCurrentUser,
   users,
   onApproveTransaction,
+  onBulkApproveTransactions,
   onViewAudit,
-  onOpenDayClosure
+  onOpenDayClosure,
+  onOpenApprovals
 }: DashboardProps) {
   const [remarkText, setRemarkText] = useState("");
   const [selectedTx, setSelectedTx] = useState<{ type: string; id: string; title: string; desc: string } | null>(null);
+
+  // Dashboard Bulk Approval State
+  const [showDashboardBulkModal, setShowDashboardBulkModal] = useState(false);
+  const [dashboardSelectedKeys, setDashboardSelectedKeys] = useState<string[]>([]);
+  const [dashboardBulkRemark, setDashboardBulkRemark] = useState("Authorized via Executive Dashboard Batch Action");
+  const [dashboardSuccessToast, setDashboardSuccessToast] = useState<string | null>(null);
+  const [isExecutingDashboardBulk, setIsExecutingDashboardBulk] = useState(false);
 
   // Calculated Stats
   const totalStockValue = balances.reduce((sum, bal) => sum + (bal.qtyOnHand * bal.movingAverageCost), 0);
@@ -90,6 +107,7 @@ export default function Dashboard({
   const pendingPRs = prs.filter(p => p.status === "Pending Approval" || p.status === "Submitted");
   const pendingPOs = pos.filter(p => p.status === "Pending Approval" || p.status === "Submitted");
   const pendingMRs = mrs.filter(m => m.status === "Pending Approval" || m.status === "Submitted");
+  const pendingGRNs = grns.filter(g => g.status === "Pending Approval");
   const pendingReturns = returns.filter(r => r.status === "Pending Approval");
   const pendingRateMods = rateMods.filter(r => r.status === "Pending Approval");
   const pendingOpenings = openings.filter(o => o.status === "Pending Approval");
@@ -99,10 +117,217 @@ export default function Dashboard({
     pendingPRs.length + 
     pendingPOs.length + 
     pendingMRs.length + 
+    pendingGRNs.length + 
     pendingReturns.length + 
     pendingRateMods.length + 
     pendingOpenings.length + 
     pendingReconciliations.length;
+
+  // Escalation calculation: Pending > 48 hours SLA
+  const calculatePendingHours = (trail?: any[], fallbackDate?: string): number => {
+    if (!trail || trail.length === 0) {
+      if (!fallbackDate) return 0;
+      const parsed = Date.parse(fallbackDate);
+      return isNaN(parsed) ? 0 : Math.max(0, Math.round((Date.now() - parsed) / (1000 * 60 * 60)));
+    }
+    const submissionEntry = [...trail].reverse().find(entry => {
+      const act = (entry.action || "").toLowerCase();
+      return act.includes("submit") || act.includes("creat") || act.includes("sent for approval") || act.includes("posted");
+    }) || trail[0];
+
+    const timestamp = submissionEntry?.timestamp ? Date.parse(submissionEntry.timestamp) : NaN;
+    if (isNaN(timestamp)) {
+      if (!fallbackDate) return 0;
+      const parsed = Date.parse(fallbackDate);
+      return isNaN(parsed) ? 0 : Math.max(0, Math.round((Date.now() - parsed) / (1000 * 60 * 60)));
+    }
+    return Math.max(0, Math.round((Date.now() - timestamp) / (1000 * 60 * 60)));
+  };
+
+  const escalatedPRs = pendingPRs.filter(p => calculatePendingHours(p.auditTrail, "2026-09-05T09:00:00Z") >= 48);
+  const escalatedPOs = pendingPOs.filter(p => calculatePendingHours(p.auditTrail, "2026-09-05T09:00:00Z") >= 48);
+  const escalatedMRs = pendingMRs.filter(m => calculatePendingHours(m.auditTrail, "2026-09-05T09:00:00Z") >= 48);
+  const escalatedGRNs = pendingGRNs.filter(g => calculatePendingHours(g.auditTrail, "2026-09-05T09:00:00Z") >= 48);
+  const totalEscalated = escalatedPRs.length + escalatedPOs.length + escalatedMRs.length + escalatedGRNs.length;
+
+  // Unified list of pending approvals for dashboard batch processing
+  const dashboardPendingList = useMemo(() => {
+    const list: {
+      key: string;
+      type: string;
+      id: string;
+      title: string;
+      detail: string;
+      value: number;
+      hoursPending: number;
+      isEscalated: boolean;
+    }[] = [];
+
+    pendingPRs.forEach(pr => {
+      const hours = calculatePendingHours(pr.auditTrail, "2026-09-05T09:00:00Z");
+      const val = pr.estimatedValue || pr.lines.reduce((s, l) => {
+        const item = items.find(i => i.id === l.itemId);
+        return s + (l.quantity * (item?.standardRate || 10));
+      }, 0);
+      list.push({
+        key: `PR:${pr.id}`,
+        type: "PR",
+        id: pr.id,
+        title: `PR ${pr.id}`,
+        detail: pr.purpose || "Requisition request",
+        value: val,
+        hoursPending: hours,
+        isEscalated: hours >= 48
+      });
+    });
+
+    pendingPOs.forEach(po => {
+      const hours = calculatePendingHours(po.auditTrail, "2026-09-05T09:00:00Z");
+      list.push({
+        key: `PO:${po.id}`,
+        type: "PO",
+        id: po.id,
+        title: `PO ${po.id}`,
+        detail: po.paymentTerms || "Purchase Order",
+        value: po.grandTotal,
+        hoursPending: hours,
+        isEscalated: hours >= 48
+      });
+    });
+
+    pendingMRs.forEach(mr => {
+      const hours = calculatePendingHours(mr.auditTrail, "2026-09-05T09:00:00Z");
+      const val = mr.estimatedValue || mr.lines.reduce((s, l) => {
+        const item = items.find(i => i.id === l.itemId);
+        return s + (l.quantity * (item?.standardRate || 10));
+      }, 0);
+      list.push({
+        key: `MR:${mr.id}`,
+        type: "MR",
+        id: mr.id,
+        title: `MR ${mr.id}`,
+        detail: mr.purpose || "Store transfer",
+        value: val,
+        hoursPending: hours,
+        isEscalated: hours >= 48
+      });
+    });
+
+    pendingGRNs.forEach(grn => {
+      const hours = calculatePendingHours(grn.auditTrail, "2026-09-05T09:00:00Z");
+      list.push({
+        key: `GRN:${grn.id}`,
+        type: "GRN",
+        id: grn.id,
+        title: `GRN ${grn.id}`,
+        detail: `Store: ${grn.deliveryStoreId}${grn.sourcePOId ? ` • PO: ${grn.sourcePOId}` : ""}`,
+        value: grn.grandTotal,
+        hoursPending: hours,
+        isEscalated: hours >= 48
+      });
+    });
+
+    pendingReturns.forEach(ret => {
+      const val = ret.lines.reduce((s, l) => {
+        const item = items.find(i => i.id === l.itemId);
+        return s + (l.returnQty * (item?.standardRate || 10));
+      }, 0);
+      list.push({
+        key: `RETURN:${ret.id}`,
+        type: "RETURN",
+        id: ret.id,
+        title: `Return ${ret.id}`,
+        detail: `GRN ${ret.grnId} • Supplier ${ret.supplierId}`,
+        value: val,
+        hoursPending: 12,
+        isEscalated: false
+      });
+    });
+
+    pendingRateMods.forEach(rm => {
+      list.push({
+        key: `RATEMOD:${rm.id}`,
+        type: "RATEMOD",
+        id: rm.id,
+        title: `Rate Mod ${rm.id}`,
+        detail: `GRN ${rm.grnId} • ${rm.lines.length} items modified`,
+        value: Math.abs(rm.totalValueImpact || 0),
+        hoursPending: 10,
+        isEscalated: false
+      });
+    });
+
+    pendingOpenings.forEach(op => {
+      list.push({
+        key: `OPENING:${op.id}`,
+        type: "OPENING",
+        id: op.id,
+        title: `Opening ${op.id}`,
+        detail: `${op.lines.length} inventory lines in Store ${op.storeId}`,
+        value: op.lines.reduce((s, l) => s + (l.quantity * l.rate), 0),
+        hoursPending: 16,
+        isEscalated: false
+      });
+    });
+
+    pendingReconciliations.forEach(rec => {
+      list.push({
+        key: `RECON:${rec.id}`,
+        type: "RECON",
+        id: rec.id,
+        title: `Reconciliation ${rec.id}`,
+        detail: `Variance: ${rec.lines.length} lines`,
+        value: rec.totalVarianceValue || 0,
+        hoursPending: 24,
+        isEscalated: false
+      });
+    });
+
+    return list;
+  }, [pendingPRs, pendingPOs, pendingMRs, pendingGRNs, pendingReturns, pendingRateMods, pendingOpenings, pendingReconciliations, items]);
+
+  const dashboardSelectedItems = useMemo(() => {
+    return dashboardPendingList.filter(item => dashboardSelectedKeys.includes(item.key));
+  }, [dashboardPendingList, dashboardSelectedKeys]);
+
+  const dashboardSelectedTotalValue = useMemo(() => {
+    return dashboardSelectedItems.reduce((acc, curr) => acc + curr.value, 0);
+  }, [dashboardSelectedItems]);
+
+  const handleOpenDashboardBulk = () => {
+    if (dashboardSelectedKeys.length === 0) {
+      setDashboardSelectedKeys(dashboardPendingList.map(i => i.key));
+    }
+    setShowDashboardBulkModal(true);
+  };
+
+  const handleExecuteDashboardBulk = (action: "Approve" | "Reject") => {
+    if (dashboardSelectedKeys.length === 0) return;
+
+    setIsExecutingDashboardBulk(true);
+    const itemsToProcess = dashboardPendingList.filter(item => dashboardSelectedKeys.includes(item.key));
+    const remark = dashboardBulkRemark.trim() || `Bulk ${action} via Dashboard by ${currentUser.name} (${currentUser.role})`;
+
+    if (onBulkApproveTransactions) {
+      onBulkApproveTransactions(
+        itemsToProcess.map(i => ({ type: i.type, id: i.id })),
+        action,
+        remark
+      );
+    } else {
+      itemsToProcess.forEach(i => {
+        onApproveTransaction(i.type, i.id, action, remark);
+      });
+    }
+
+    setTimeout(() => {
+      setIsExecutingDashboardBulk(false);
+      setShowDashboardBulkModal(false);
+      setDashboardSelectedKeys([]);
+      setDashboardSuccessToast(`✓ Successfully ${action === "Approve" ? "Authorized" : "Rejected"} ${itemsToProcess.length} transaction(s).`);
+      setTimeout(() => setDashboardSuccessToast(null), 4000);
+    }, 400);
+  };
 
   // Function that iterates through 'balances' state and cross-references them with 'Item' master data
   // to identify items where 'qtyOnHand' <= 'minOrderLevel'
@@ -460,7 +685,35 @@ export default function Dashboard({
               <ShieldCheck className="text-slate-700" size={20} />
               <h2 className="text-lg font-bold text-slate-800">Unified Workflow Authorization Inbox</h2>
             </div>
-            <span className="px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-800 rounded-full">{totalPendingApprovals} Awaiting Action</span>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {totalEscalated > 0 && (
+                <span className="px-2.5 py-1 text-xs font-black bg-rose-600 text-white rounded-full flex items-center gap-1 shadow-2xs animate-pulse">
+                  <Flame size={12} />
+                  {totalEscalated} High Priority (&gt;48h)
+                </span>
+              )}
+              {totalPendingApprovals > 0 && (
+                <button
+                  type="button"
+                  onClick={handleOpenDashboardBulk}
+                  className="px-3 py-1 text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  id="btn-dashboard-bulk-approve"
+                >
+                  <Zap size={13} className="text-amber-300" />
+                  Bulk Approve ({totalPendingApprovals})
+                </button>
+              )}
+              {onOpenApprovals && (
+                <button
+                  onClick={onOpenApprovals}
+                  className="px-2.5 py-1 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                  id="btn-goto-approval-screen"
+                >
+                  Dedicated Approval Screen &rarr;
+                </button>
+              )}
+              <span className="px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-800 rounded-full">{totalPendingApprovals} Awaiting Action</span>
+            </div>
           </div>
 
           <div className="mt-4 flex-1 overflow-y-auto max-h-[360px] space-y-3 pr-1" id="approval-items-list">
@@ -475,82 +728,161 @@ export default function Dashboard({
             ) : (
               <>
                 {/* PR Queue */}
-                {pendingPRs.map(pr => (
-                  <div key={pr.id} className="p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/50 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-100 text-purple-700 rounded-sm">Requisition (PR)</span>
-                        <span className="text-xs font-mono font-bold text-slate-700">{pr.id}</span>
+                {pendingPRs.map(pr => {
+                  const hoursPending = calculatePendingHours(pr.auditTrail, "2026-09-05T09:00:00Z");
+                  const isEscalated = hoursPending >= 48;
+
+                  return (
+                    <div key={pr.id} className={`p-4 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 border ${
+                      isEscalated ? "bg-rose-50/40 border-rose-300 border-l-4 border-l-rose-600" : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/50"
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-blue-100 text-purple-700 rounded-sm">Requisition (PR)</span>
+                          <span className="text-xs font-mono font-bold text-slate-700">{pr.id}</span>
+                          {isEscalated && (
+                            <span className="text-[9px] font-black px-2 py-0.5 bg-rose-600 text-white rounded-full flex items-center gap-1">
+                              <Flame size={10} /> High Priority ({hoursPending}h &gt; 48h)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-slate-600 mt-1.5">Est. Budget: <span className="text-slate-800">${pr.estimatedValue.toFixed(2)}</span> • Store: {pr.storeId}</p>
+                        <p className="text-[11px] text-slate-500 italic mt-0.5">Purpose: "{pr.purpose || 'Not detailed'}"</p>
                       </div>
-                      <p className="text-xs font-semibold text-slate-600 mt-1.5">Est. Budget: <span className="text-slate-800">${pr.estimatedValue.toFixed(2)}</span> • Store: {pr.storeId}</p>
-                      <p className="text-[11px] text-slate-500 italic mt-0.5">Purpose: "{pr.purpose || 'Not detailed'}"</p>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      {onViewAudit && (
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        {onViewAudit && (
+                          <button 
+                            onClick={() => onViewAudit(pr.id, "PR", pr.auditTrail || [])} 
+                            className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
+                            title="View Full Lifecycle Audit Trail"
+                          >
+                            <Clock size={14} />
+                          </button>
+                        )}
                         <button 
-                          onClick={() => onViewAudit(pr.id, "PR", pr.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
-                          title="View Full Lifecycle Audit Trail"
+                          onClick={() => setSelectedTx({ type: "PR", id: pr.id, title: `Authorize ${pr.id}`, desc: `Estimated Requisition Value: $${pr.estimatedValue.toFixed(2)}. Initiated by ${pr.requesterId}.` })}
+                          className="px-3.5 py-1.5 text-xs font-bold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-200 hover:border-purple-600 rounded-lg transition-all"
                         >
-                          <Clock size={14} />
+                          Process Transaction
                         </button>
-                      )}
-                      <button 
-                        onClick={() => setSelectedTx({ type: "PR", id: pr.id, title: `Authorize ${pr.id}`, desc: `Estimated Requisition Value: $${pr.estimatedValue.toFixed(2)}. Initiated by ${pr.requesterId}.` })}
-                        className="px-3.5 py-1.5 text-xs font-bold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-200 hover:border-purple-600 rounded-lg transition-all"
-                      >
-                        Process Transaction
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* PO Queue */}
-                {pendingPOs.map(po => (
-                  <div key={po.id} className="p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/50 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-purple-100 text-purple-700 rounded-sm">Purchase Order (PO)</span>
-                        <span className="text-xs font-mono font-bold text-slate-700">{po.id}</span>
+                {pendingPOs.map(po => {
+                  const hoursPending = calculatePendingHours(po.auditTrail, "2026-09-05T09:00:00Z");
+                  const isEscalated = hoursPending >= 48;
+
+                  return (
+                    <div key={po.id} className={`p-4 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 border ${
+                      isEscalated ? "bg-rose-50/40 border-rose-300 border-l-4 border-l-rose-600" : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/50"
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-purple-100 text-purple-700 rounded-sm">Purchase Order (PO)</span>
+                          <span className="text-xs font-mono font-bold text-slate-700">{po.id}</span>
+                          {isEscalated && (
+                            <span className="text-[9px] font-black px-2 py-0.5 bg-rose-600 text-white rounded-full flex items-center gap-1">
+                              <Flame size={10} /> High Priority ({hoursPending}h &gt; 48h)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-slate-600 mt-1.5">Supplier Total: <span className="text-slate-800">${po.grandTotal.toFixed(2)}</span> • Type: {po.purchaseType}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Store Delivery: {po.deliveryStoreId} • Terms: {po.paymentTerms}</p>
                       </div>
-                      <p className="text-xs font-semibold text-slate-600 mt-1.5">Supplier Total: <span className="text-slate-800">${po.grandTotal.toFixed(2)}</span> • Type: {po.purchaseType}</p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Store Delivery: {po.deliveryStoreId} • Terms: {po.paymentTerms}</p>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      {onViewAudit && (
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        {onViewAudit && (
+                          <button 
+                            onClick={() => onViewAudit(po.id, "PO", po.auditTrail || [])} 
+                            className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
+                            title="View Full Lifecycle Audit Trail"
+                          >
+                            <Clock size={14} />
+                          </button>
+                        )}
                         <button 
-                          onClick={() => onViewAudit(po.id, "PO", po.auditTrail || [])} 
-                          className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
-                          title="View Full Lifecycle Audit Trail"
+                          onClick={() => setSelectedTx({ type: "PO", id: po.id, title: `Authorize ${po.id}`, desc: `Contract Sum: $${po.grandTotal.toFixed(2)} with Supplier. Budget Category: ${po.purchaseType}.` })}
+                          className="px-3.5 py-1.5 text-xs font-bold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-200 hover:border-purple-600 rounded-lg transition-all"
                         >
-                          <Clock size={14} />
+                          Process Transaction
                         </button>
-                      )}
-                      <button 
-                        onClick={() => setSelectedTx({ type: "PO", id: po.id, title: `Authorize ${po.id}`, desc: `Contract Sum: $${po.grandTotal.toFixed(2)} with Supplier. Budget Category: ${po.purchaseType}.` })}
-                        className="px-3.5 py-1.5 text-xs font-bold text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-600 border border-purple-200 hover:border-purple-600 rounded-lg transition-all"
-                      >
-                        Process Transaction
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* MR Queue */}
-                {pendingMRs.map(mr => (
-                  <div key={mr.id} className="p-4 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/50 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-100 text-amber-800 rounded-sm">Material Request (MR)</span>
-                        <span className="text-xs font-mono font-bold text-slate-700">{mr.id}</span>
+                {pendingMRs.map(mr => {
+                  const hoursPending = calculatePendingHours(mr.auditTrail, "2026-09-05T09:00:00Z");
+                  const isEscalated = hoursPending >= 48;
+
+                  return (
+                    <div key={mr.id} className={`p-4 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 border ${
+                      isEscalated ? "bg-rose-50/40 border-rose-300 border-l-4 border-l-rose-600" : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/50"
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-100 text-amber-800 rounded-sm">Material Request (MR)</span>
+                          <span className="text-xs font-mono font-bold text-slate-700">{mr.id}</span>
+                          {isEscalated && (
+                            <span className="text-[9px] font-black px-2 py-0.5 bg-rose-600 text-white rounded-full flex items-center gap-1">
+                              <Flame size={10} /> High Priority ({hoursPending}h &gt; 48h)
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-semibold text-slate-600 mt-1.5">Cost Center Charge: <span className="text-slate-800">{mr.requestingDeptId}</span> • Valued: ${mr.estimatedValue.toFixed(2)}</p>
+                        <p className="text-[11px] text-slate-500 italic mt-0.5">Purpose: "{mr.purpose}"</p>
                       </div>
-                      <p className="text-xs font-semibold text-slate-600 mt-1.5">Cost Center Charge: <span className="text-slate-800">{mr.requestingDeptId}</span> • Valued: ${mr.estimatedValue.toFixed(2)}</p>
-                      <p className="text-[11px] text-slate-500 italic mt-0.5">Purpose: "{mr.purpose}"</p>
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        {onViewAudit && (
+                          <button 
+                            onClick={() => onViewAudit(mr.id, "MR", mr.auditTrail || [])} 
+                            className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
+                            title="View Full Lifecycle Audit Trail"
+                          >
+                            <Clock size={14} />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => setSelectedTx({ type: "MR", id: mr.id, title: `Authorize ${mr.id}`, desc: `Departmental internal transfer. Cost Center: ${mr.requestingDeptId}. Value: $${mr.estimatedValue.toFixed(2)}` })}
+                          className="px-3.5 py-1.5 text-xs font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-200 hover:border-amber-600 rounded-lg transition-all"
+                        >
+                          Process Transaction
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* GRN Queue */}
+                {pendingGRNs.map(grn => {
+                  const hoursPending = calculatePendingHours(grn.auditTrail, grn.receivedDate);
+                  const isEscalated = hoursPending >= 48;
+
+                  return (
+                    <div key={grn.id} className={`p-4 rounded-lg transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 border ${
+                      isEscalated ? "bg-rose-50/40 border-rose-300 border-l-4 border-l-rose-600" : "bg-slate-50 hover:bg-slate-100/70 border-slate-200/50"
+                    }`}>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-sm">Goods Receipt (GRN)</span>
+                          <span className="text-xs font-mono font-bold text-slate-700">{grn.id}</span>
+                          {grn.isDirect && <span className="text-[9px] px-1 bg-amber-50 text-amber-700 border border-amber-200 rounded font-bold">DIRECT</span>}
+                          {isEscalated && (
+                            <span className="text-[9px] font-black px-2 py-0.5 bg-rose-600 text-white rounded-full flex items-center gap-1">
+                              <Flame size={10} /> High Priority ({hoursPending}h &gt; 48h)
+                            </span>
+                          )}
+                        </div>
+                      <p className="text-xs font-semibold text-slate-600 mt-1.5">Receipt Total: <span className="text-slate-800">${grn.grandTotal.toFixed(2)}</span> • Store: {grn.deliveryStoreId}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{grn.sourcePOId ? `Linked PO: ${grn.sourcePOId}` : `Direct: ${grn.reasonCode || 'Manual'}`}</p>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-center">
                       {onViewAudit && (
                         <button 
-                          onClick={() => onViewAudit(mr.id, "MR", mr.auditTrail || [])} 
+                          onClick={() => onViewAudit(grn.id, "GRN", grn.auditTrail || [])} 
                           className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 border border-slate-200 hover:border-purple-100 rounded-lg transition-colors cursor-pointer"
                           title="View Full Lifecycle Audit Trail"
                         >
@@ -558,14 +890,15 @@ export default function Dashboard({
                         </button>
                       )}
                       <button 
-                        onClick={() => setSelectedTx({ type: "MR", id: mr.id, title: `Authorize ${mr.id}`, desc: `Departmental internal transfer. Cost Center: ${mr.requestingDeptId}. Value: $${mr.estimatedValue.toFixed(2)}` })}
-                        className="px-3.5 py-1.5 text-xs font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-200 hover:border-amber-600 rounded-lg transition-all"
+                        onClick={() => setSelectedTx({ type: "GRN", id: grn.id, title: `Authorize Goods Receipt ${grn.id}`, desc: `Value: $${grn.grandTotal.toFixed(2)}. Approving will post all line quantities directly to stock ledger balance.` })}
+                        className="px-3.5 py-1.5 text-xs font-bold text-emerald-700 hover:text-white bg-emerald-50 hover:bg-emerald-600 border border-emerald-200 hover:border-emerald-600 rounded-lg transition-all"
                       >
                         Process Transaction
                       </button>
                     </div>
                   </div>
-                ))}
+                );
+              })}
 
                 {/* Returns Queue */}
                 {pendingReturns.map(ret => (
@@ -876,6 +1209,211 @@ export default function Dashboard({
               >
                 Approve Transaction
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DASHBOARD TOAST NOTIFICATION */}
+      {dashboardSuccessToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-slate-800 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-200">
+          <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+          <span className="text-xs font-bold">{dashboardSuccessToast}</span>
+          <button onClick={() => setDashboardSuccessToast(null)} className="text-slate-400 hover:text-white ml-2">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* DASHBOARD BATCH AUTHORIZATION MODAL */}
+      {showDashboardBulkModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150" id="modal-dashboard-batch-approve">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-purple-200 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-purple-600 rounded-xl text-white shadow-xs">
+                  <Zap size={20} className="text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold tracking-tight">Dashboard Batch Workflow Authorization</h3>
+                  <p className="text-xs text-purple-200/80 mt-0.5">
+                    Authorized Signatory: <strong className="text-white">{currentUser.name}</strong> ({currentUser.role} • {currentUser.department})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDashboardBulkModal(false)}
+                className="p-2 text-purple-300 hover:text-white rounded-lg hover:bg-purple-800/80 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs flex-1">
+              {/* Summary KPIs */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl">
+                  <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider block">Selected Items</span>
+                  <span className="text-xl font-extrabold text-purple-950 mt-0.5 block">
+                    {dashboardSelectedKeys.length} of {dashboardPendingList.length}
+                  </span>
+                </div>
+                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Batch Total Value</span>
+                  <span className="text-xl font-extrabold text-emerald-950 mt-0.5 block">
+                    ${dashboardSelectedTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl">
+                  <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider block">High Priority (&gt;48h)</span>
+                  <span className="text-xl font-extrabold text-rose-950 mt-0.5 block flex items-center gap-1">
+                    {dashboardSelectedItems.filter(i => i.isEscalated).length}
+                    {dashboardSelectedItems.some(i => i.isEscalated) && (
+                      <Flame size={15} className="text-rose-600 animate-pulse" />
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Selection Controls */}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDashboardSelectedKeys(dashboardPendingList.map(i => i.key))}
+                    className="px-2.5 py-1 rounded bg-purple-50 text-purple-700 font-bold border border-purple-200 hover:bg-purple-100 cursor-pointer"
+                  >
+                    Select All ({dashboardPendingList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDashboardSelectedKeys(dashboardPendingList.filter(i => i.isEscalated).map(i => i.key))}
+                    className="px-2.5 py-1 rounded bg-rose-50 text-rose-700 font-bold border border-rose-200 hover:bg-rose-100 cursor-pointer flex items-center gap-1"
+                  >
+                    <Flame size={11} /> Overdue (&gt;48h)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDashboardSelectedKeys([])}
+                    className="px-2.5 py-1 rounded bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <span className="text-[11px] text-slate-400">Toggle items to customize batch</span>
+              </div>
+
+              {/* Transactions List */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[220px] overflow-y-auto divide-y divide-slate-100">
+                {dashboardPendingList.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400">
+                    No pending approval transactions found.
+                  </div>
+                ) : (
+                  dashboardPendingList.map(item => {
+                    const isChecked = dashboardSelectedKeys.includes(item.key);
+                    return (
+                      <div
+                        key={item.key}
+                        onClick={() => {
+                          if (isChecked) {
+                            setDashboardSelectedKeys(dashboardSelectedKeys.filter(k => k !== item.key));
+                          } else {
+                            setDashboardSelectedKeys([...dashboardSelectedKeys, item.key]);
+                          }
+                        }}
+                        className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                          isChecked ? "bg-purple-50/40 hover:bg-purple-50/70" : "bg-white hover:bg-slate-50 opacity-60"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}} // Handled by container onClick
+                            className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                          />
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-purple-100 text-purple-700 shrink-0">
+                            {item.type}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                              <span>{item.title}</span>
+                              {item.isEscalated && (
+                                <span className="px-1.5 py-0.2 text-[9px] font-black bg-rose-600 text-white rounded flex items-center gap-0.5">
+                                  <Flame size={10} /> &gt;48h Overdue
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-500 truncate">{item.detail}</div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="font-extrabold text-slate-900">
+                            ${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-[10px] text-slate-400">{item.hoursPending}h pending</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Remarks */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 block">Signatory Batch Remarks:</label>
+                <input
+                  type="text"
+                  value={dashboardBulkRemark}
+                  onChange={(e) => setDashboardBulkRemark(e.target.value)}
+                  placeholder="Enter audit approval remarks..."
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-medium">
+                {dashboardSelectedKeys.length} of {dashboardPendingList.length} items queued
+              </span>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowDashboardBulkModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={dashboardSelectedKeys.length === 0 || isExecutingDashboardBulk}
+                  onClick={() => handleExecuteDashboardBulk("Reject")}
+                  className="px-4 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                  id="btn-dashboard-modal-bulk-reject"
+                >
+                  Reject Selected ({dashboardSelectedKeys.length})
+                </button>
+                <button
+                  type="button"
+                  disabled={dashboardSelectedKeys.length === 0 || isExecutingDashboardBulk}
+                  onClick={() => handleExecuteDashboardBulk("Approve")}
+                  className="px-5 py-2 text-xs font-extrabold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  id="btn-dashboard-modal-bulk-approve"
+                >
+                  <Check size={15} />
+                  <span>
+                    {isExecutingDashboardBulk
+                      ? "Authorizing..."
+                      : `Authorize Selected (${dashboardSelectedKeys.length})`}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

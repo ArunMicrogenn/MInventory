@@ -12,7 +12,8 @@ import {
 import { 
   initialItems, initialStores, initialProperties, initialDepartments, initialSuppliers, 
   initialUsers, initialConfig, initialPRs, initialPOs, initialMRs, 
-  initialGRNs, initialStockBalances, initialStockLedger, initialDayClosures
+  initialGRNs, initialStockBalances, initialStockLedger, initialDayClosures,
+  initialRecipes, initialProductionRequests
 } from "./initialData";
 
 import Dashboard from "./components/Dashboard";
@@ -29,12 +30,14 @@ import ReportsModule from "./components/ReportsModule";
 import DayClosureModal from "./components/DayClosureModal";
 import MonthClosureModal from "./components/MonthClosureModal";
 import ReprintCenterModule from "./components/ReprintCenterModule";
+import ApprovalCenterModule from "./components/ApprovalCenterModule";
+import FBProductionModule, { FBRecipe, FBProductionRequest } from "./components/FBProductionModule";
 import AuthScreen from "./components/AuthScreen";
 
 import { 
   LayoutDashboard, Database, ClipboardList, ShoppingBag, 
   Shuffle, CheckSquare, RefreshCw, Layers, History, HelpCircle, 
-  UserSquare2, ArrowLeftRight, FileText, CalendarCheck2, Printer
+  UserSquare2, ArrowLeftRight, FileText, CalendarCheck2, Printer, ShieldCheck, ChefHat
 } from "lucide-react";
 
 export default function App() {
@@ -156,6 +159,23 @@ export default function App() {
   const [issueReturns, setIssueReturns] = useState<IssueReturnHeader[]>([]);
   const [openings, setOpenings] = useState<StoreOpeningHeader[]>([]);
   const [recons, setRecons] = useState<ReconciliationHeader[]>([]);
+  const [recipes, setRecipes] = useState<FBRecipe[]>(initialRecipes);
+  const [productionRequests, setProductionRequests] = useState<FBProductionRequest[]>(initialProductionRequests);
+
+  const handleRaiseMaterialIssueFromProduction = (newIssue: IssueHeader) => {
+    setIssues(prev => [newIssue, ...prev]);
+    newIssue.lines.forEach(line => {
+      handlePostStockLedger(
+        newIssue.storeId,
+        line.itemId,
+        -line.issuedQty,
+        line.unitRate,
+        "Production Material Issue",
+        newIssue.id,
+        "LOT-PROD-ISS"
+      );
+    });
+  };
 
   // Stock Ledger & Balance State
   const [balances, setBalances] = useState<StockBalance[]>([]);
@@ -559,9 +579,9 @@ export default function App() {
       "Draft";
 
     const newAuditLog = (oldAudit: any[]) => [
-      ...oldAudit,
+      ...(oldAudit || []),
       {
-        id: `AUD-${Date.now()}`,
+        id: `AUD-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         timestamp: new Date().toISOString(),
         userId: currentUser.id,
         userName: currentUser.name,
@@ -571,14 +591,78 @@ export default function App() {
     ];
 
     if (type === "PR") {
-      setPrs(prs.map(p => p.id === id ? { ...p, status: nextStatus, approverRemarks: remark, auditTrail: newAuditLog(p.auditTrail) } : p));
+      setPrs(prev => prev.map(p => p.id === id ? { ...p, status: nextStatus, approverRemarks: remark, auditTrail: newAuditLog(p.auditTrail) } : p));
     } else if (type === "PO") {
-      setPos(pos.map(p => p.id === id ? { ...p, status: nextStatus, approverRemarks: remark, auditTrail: newAuditLog(p.auditTrail) } : p));
+      setPos(prev => prev.map(p => p.id === id ? { ...p, status: nextStatus, approverRemarks: remark, auditTrail: newAuditLog(p.auditTrail) } : p));
     } else if (type === "MR") {
-      setMrs(mrs.map(m => m.id === id ? { ...m, status: nextStatus, approverRemarks: remark, auditTrail: newAuditLog(m.auditTrail) } : m));
+      setMrs(prev => prev.map(m => m.id === id ? { ...m, status: nextStatus, approverRemarks: remark, auditTrail: newAuditLog(m.auditTrail) } : m));
+    } else if (type === "GRN") {
+      const grnStatus: any = 
+        action === "Approve" ? "Posted" : 
+        action === "Reject" ? "Rejected" : 
+        "Draft";
+
+      const targetGRN = grns.find(g => g.id === id);
+
+      setGrns(prev => prev.map(g => g.id === id ? { 
+        ...g, 
+        status: grnStatus, 
+        approverRemarks: remark, 
+        auditTrail: newAuditLog(g.auditTrail || []) 
+      } : g));
+
+      if (action === "Approve" && targetGRN) {
+        // 1. Post to Stock Ledger Engine
+        targetGRN.lines.forEach(line => {
+          handlePostStockLedger(
+            targetGRN.deliveryStoreId,
+            line.itemId,
+            line.receivedQty,
+            line.rate,
+            "Material Receipt",
+            id,
+            line.batchLotNumber
+          );
+        });
+
+        // 2. If linked to PO, update PO line quantities and status
+        if (targetGRN.sourcePOId) {
+          setPos(prevPOs => {
+            const poObj = prevPOs.find(p => p.id === targetGRN.sourcePOId);
+            if (!poObj) return prevPOs;
+            const updatedPOLines = poObj.lines.map(line => {
+              const matchedRec = targetGRN.lines.find(gl => gl.sourcePOLineId === line.id);
+              if (matchedRec) {
+                return { ...line, receivedQty: line.receivedQty + matchedRec.receivedQty };
+              }
+              return line;
+            });
+
+            const allFulfilled = updatedPOLines.every(l => l.receivedQty >= l.quantity || l.isShortClosed);
+            const updatedPOStatus = allFulfilled ? "Closed" : "Partially Received";
+
+            return prevPOs.map(p => p.id === poObj.id ? {
+              ...p,
+              status: updatedPOStatus as any,
+              lines: updatedPOLines,
+              auditTrail: [
+                ...(p.auditTrail || []),
+                {
+                  id: `AUD-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                  timestamp: new Date().toISOString(),
+                  userId: currentUser.id,
+                  userName: currentUser.name,
+                  action: "Receipt Authorized",
+                  details: `GRN ${id} approved by ${currentUser.name}. Stock ledger updated.`
+                }
+              ]
+            } : p);
+          });
+        }
+      }
     } else if (type === "Return") {
       const retStatus = action === "Approve" ? "Posted" : action === "Reject" ? "Rejected" : "Draft";
-      setReturns(returns.map(r => r.id === id ? { ...r, status: retStatus as any } : r));
+      setReturns(prev => prev.map(r => r.id === id ? { ...r, status: retStatus as any } : r));
       if (action === "Approve") {
         const retObj = returns.find(r => r.id === id);
         if (retObj) {
@@ -601,13 +685,13 @@ export default function App() {
       }
     } else if (type === "RateMod") {
       const modStatus = action === "Approve" ? "Posted" : action === "Reject" ? "Rejected" : "Draft";
-      setRateMods(rateMods.map(r => r.id === id ? { ...r, status: modStatus as any, auditTrail: newAuditLog(r.auditTrail) } : r));
+      setRateMods(prev => prev.map(r => r.id === id ? { ...r, status: modStatus as any, auditTrail: newAuditLog(r.auditTrail) } : r));
     } else if (type === "Opening") {
       const opStatus = action === "Approve" ? "Posted" : "Draft";
-      setOpenings(openings.map(o => o.id === id ? { ...o, status: opStatus as any } : o));
+      setOpenings(prev => prev.map(o => o.id === id ? { ...o, status: opStatus as any } : o));
     } else if (type === "Reconciliation") {
       const recStatus = action === "Approve" ? "Posted" : action === "Reject" ? "Rejected" : "Draft";
-      setRecons(recons.map(r => r.id === id ? { ...r, status: recStatus as any } : r));
+      setRecons(prev => prev.map(r => r.id === id ? { ...r, status: recStatus as any } : r));
       if (action === "Approve") {
         const recObj = recons.find(r => r.id === id);
         if (recObj) {
@@ -627,6 +711,16 @@ export default function App() {
         }
       }
     }
+  };
+
+  const handleBulkApproveTransactions = (
+    itemsList: { type: string; id: string }[],
+    action: "Approve" | "Reject",
+    remark: string
+  ) => {
+    itemsList.forEach(item => {
+      handleApproveTransaction(item.type, item.id, action, remark);
+    });
   };
 
   return (
@@ -651,6 +745,34 @@ export default function App() {
           >
             <LayoutDashboard size={15} />
             Command Center
+          </button>
+
+          <div className="pt-3 pb-1 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">AUTHORIZATIONS</div>
+          <button
+            onClick={() => setActiveTab("approvals")}
+            className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === "approvals" ? "bg-purple-600 text-white shadow-xs" : "hover:bg-slate-800 hover:text-slate-100"
+            }`}
+            id="nav-approvals-screen-btn"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck size={15} />
+              <span>Approval Center</span>
+            </div>
+            {(() => {
+              const count = 
+                prs.filter(p => p.status === "Pending Approval" || p.status === "Submitted").length +
+                pos.filter(p => p.status === "Pending Approval" || p.status === "Submitted").length +
+                mrs.filter(m => m.status === "Pending Approval" || m.status === "Submitted").length +
+                grns.filter(g => g.status === "Pending Approval").length;
+              return count > 0 ? (
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                  activeTab === "approvals" ? "bg-white/20 text-white" : "bg-amber-500 text-slate-950"
+                }`}>
+                  {count}
+                </span>
+              ) : null;
+            })()}
           </button>
           
           <div className="pt-3 pb-1 px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">DATABASES</div>
@@ -720,6 +842,16 @@ export default function App() {
           >
             <ArrowLeftRight size={15} />
             Material Issue & Cons
+          </button>
+          <button
+            onClick={() => setActiveTab("fb-production")}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === "fb-production" ? "bg-purple-600 text-white shadow-xs" : "hover:bg-slate-800 hover:text-slate-100"
+            }`}
+            id="nav-fb-production-btn"
+          >
+            <ChefHat size={15} />
+            <span>F&B Production & Issues</span>
           </button>
           <button
             onClick={() => setActiveTab("recons")}
@@ -879,8 +1011,30 @@ export default function App() {
                     setCurrentUser={setCurrentUser}
                     users={users}
                     onApproveTransaction={handleApproveTransaction}
+                    onBulkApproveTransactions={handleBulkApproveTransactions}
                     onViewAudit={handleOpenAuditTimeline}
                     onOpenDayClosure={() => setDayClosureModalOpen(true)}
+                    onOpenApprovals={() => setActiveTab("approvals")}
+                  />
+                )}
+
+                {activeTab === "approvals" && (
+                  <ApprovalCenterModule
+                    prs={filteredPrs}
+                    pos={filteredPos}
+                    mrs={filteredMrs}
+                    grns={filteredGrns}
+                    items={items}
+                    stores={stores}
+                    departments={departments}
+                    suppliers={suppliers}
+                    properties={properties}
+                    currentUser={currentUser}
+                    users={users}
+                    onApproveTransaction={handleApproveTransaction}
+                    onBulkApproveTransactions={handleBulkApproveTransactions}
+                    onViewAudit={handleOpenAuditTimeline}
+                    selectedPropertyId={selectedPropertyId}
                   />
                 )}
 
@@ -925,6 +1079,20 @@ export default function App() {
                     departments={departments}
                     currentUser={currentUser}
                     onViewAudit={handleOpenAuditTimeline}
+                  />
+                )}
+
+                {activeTab === "fb-production" && (
+                  <FBProductionModule 
+                    productionRequests={productionRequests}
+                    setProductionRequests={setProductionRequests}
+                    recipes={recipes}
+                    items={items}
+                    stores={stores}
+                    departments={departments}
+                    properties={properties}
+                    currentUser={currentUser}
+                    onRaiseMaterialIssue={handleRaiseMaterialIssueFromProduction}
                   />
                 )}
 

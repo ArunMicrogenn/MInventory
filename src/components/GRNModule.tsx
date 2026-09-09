@@ -108,7 +108,7 @@ export default function GRNModule({
     setTempBatch("");
   };
 
-  const handlePostGRN = () => {
+  const handlePostGRN = (submitForApproval: boolean = false) => {
     const grnId = `GRN-2026-000${grns.length + 1}`;
     
     if (grnType === "PO") {
@@ -179,67 +179,83 @@ export default function GRNModule({
 
       const newGRN: GRNHeader = {
         id: grnId,
+        propertyId: poObj.propertyId,
         sourcePOId: poObj.id,
         deliveryStoreId: poObj.deliveryStoreId,
         supplierId: poObj.supplierId,
         receivedDate: new Date().toISOString().split("T")[0],
         isDirect: false,
-        status: "Posted",
+        status: submitForApproval ? "Pending Approval" : "Posted",
         lines: grnLines,
         subTotal,
         taxTotal,
         discountTotal,
-        grandTotal
+        grandTotal,
+        auditTrail: [
+          {
+            id: `AUD-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            userId: currentUser.id,
+            userName: currentUser.name,
+            action: submitForApproval ? "Submitted for Approval" : "Receipt Posted",
+            details: submitForApproval
+              ? `GRN ${grnId} submitted for Goods Inward Manager authorization.`
+              : `GRN ${grnId} posted with physical arrival of materials. Stock accounts credited.`
+          }
+        ]
       };
 
-      // 1. Post to Stock Ledger Engine (instant post!)
-      grnLines.forEach(line => {
-        onPostStockLedger(
-          poObj.deliveryStoreId,
-          line.itemId,
-          line.receivedQty,
-          line.rate,
-          "Material Receipt",
-          grnId,
-          line.batchLotNumber
-        );
-      });
+      if (!submitForApproval) {
+        // 1. Post to Stock Ledger Engine (instant post!)
+        grnLines.forEach(line => {
+          onPostStockLedger(
+            poObj.deliveryStoreId,
+            line.itemId,
+            line.receivedQty,
+            line.rate,
+            "Material Receipt",
+            grnId,
+            line.batchLotNumber
+          );
+        });
 
-      // 2. Update PO line quantities and status
-      const updatedPOLines = poObj.lines.map(line => {
-        const matchedRec = grnLines.find(gl => gl.sourcePOLineId === line.id);
-        if (matchedRec) {
-          return { ...line, receivedQty: line.receivedQty + matchedRec.receivedQty };
-        }
-        return line;
-      });
+        // 2. Update PO line quantities and status
+        const updatedPOLines = poObj.lines.map(line => {
+          const matchedRec = grnLines.find(gl => gl.sourcePOLineId === line.id);
+          if (matchedRec) {
+            return { ...line, receivedQty: line.receivedQty + matchedRec.receivedQty };
+          }
+          return line;
+        });
 
-      const allFulfilled = updatedPOLines.every(l => l.receivedQty >= l.quantity || l.isShortClosed);
-      const updatedPOStatus = allFulfilled ? "Closed" : "Partially Received";
+        const allFulfilled = updatedPOLines.every(l => l.receivedQty >= l.quantity || l.isShortClosed);
+        const updatedPOStatus = allFulfilled ? "Closed" : "Partially Received";
 
-      const updatedPOs = pos.map(p => {
-        if (p.id === poObj.id) {
-          return {
-            ...p,
-            status: updatedPOStatus as any,
-            lines: updatedPOLines,
-            auditTrail: [
-              ...p.auditTrail,
-              {
-                id: `AUD-${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                userId: currentUser.id,
-                userName: currentUser.name,
-                action: "Receipt Posted",
-                details: `GRN ${grnId} posted with physical arrival of materials. Stock accounts credited.`
-              }
-            ]
-          };
-        }
-        return p;
-      });
+        const updatedPOs = pos.map(p => {
+          if (p.id === poObj.id) {
+            return {
+              ...p,
+              status: updatedPOStatus as any,
+              lines: updatedPOLines,
+              auditTrail: [
+                ...p.auditTrail,
+                {
+                  id: `AUD-${Date.now()}`,
+                  timestamp: new Date().toISOString(),
+                  userId: currentUser.id,
+                  userName: currentUser.name,
+                  action: "Receipt Posted",
+                  details: `GRN ${grnId} posted with physical arrival of materials. Stock accounts credited.`
+                }
+              ]
+            };
+          }
+          return p;
+        });
 
-      setPos(updatedPOs);
+        setPos(updatedPOs);
+      }
+
       setGrns([...grns, newGRN]);
       setIsCreating(false);
       setReceiptQtys({});
@@ -274,26 +290,40 @@ export default function GRNModule({
         receivedDate: new Date().toISOString().split("T")[0],
         isDirect: true,
         reasonCode: directReason,
-        status: "Posted",
+        status: submitForApproval ? "Pending Approval" : "Posted",
         lines: grnLines,
         subTotal,
         taxTotal: 0,
         discountTotal: 0,
-        grandTotal
+        grandTotal,
+        auditTrail: [
+          {
+            id: `AUD-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            userId: currentUser.id,
+            userName: currentUser.name,
+            action: submitForApproval ? "Submitted for Approval" : "Direct Receipt Posted",
+            details: submitForApproval
+              ? `Direct GRN ${grnId} submitted for Goods Inward Manager authorization.`
+              : `Direct GRN ${grnId} posted directly to ledger by ${currentUser.name}.`
+          }
+        ]
       };
 
-      // Post direct to Stock Ledger
-      grnLines.forEach(line => {
-        onPostStockLedger(
-          directStore,
-          line.itemId,
-          line.receivedQty,
-          line.rate,
-          "Material Receipt",
-          grnId,
-          line.batchLotNumber
-        );
-      });
+      if (!submitForApproval) {
+        // Post direct to Stock Ledger
+        grnLines.forEach(line => {
+          onPostStockLedger(
+            directStore,
+            line.itemId,
+            line.receivedQty,
+            line.rate,
+            "Material Receipt",
+            grnId,
+            line.batchLotNumber
+          );
+        });
+      }
 
       setGrns([...grns, newGRN]);
       setIsCreating(false);
@@ -332,6 +362,7 @@ export default function GRNModule({
                   <th className="p-3">Supplier Origin</th>
                   <th className="p-3">Received Date</th>
                   <th className="p-3">Receipt Value</th>
+                  <th className="p-3">Status</th>
                   <th className="p-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -354,6 +385,19 @@ export default function GRNModule({
                       <td className="p-3 font-bold text-slate-700">{supObj?.name || "N/A"}</td>
                       <td className="p-3">{grn.receivedDate}</td>
                       <td className="p-3 font-bold text-slate-700">${grn.grandTotal.toFixed(2)}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          grn.status === "Posted" || grn.status === "Approved"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : grn.status === "Pending Approval"
+                            ? "bg-amber-100 text-amber-800"
+                            : grn.status === "Rejected"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-slate-100 text-slate-700"
+                        }`}>
+                          {grn.status || "Posted"}
+                        </span>
+                      </td>
                       <td className="p-3 text-right flex items-center justify-end gap-1.5">
                         <PrintButton
                           variant="table-action"
@@ -720,19 +764,32 @@ export default function GRNModule({
               )}
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
-              <button
-                onClick={() => setIsCreating(false)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-200 rounded-lg"
-              >
-                Discard
-              </button>
-              <button
-                onClick={handlePostGRN}
-                className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs"
-              >
-                Post Receipt & Stock-In
-              </button>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-slate-500 italic">
+                * Submitting for approval routes this receipt to the Approval Center before stock ledger update.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsCreating(false)}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-200 rounded-lg cursor-pointer"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={() => handlePostGRN(true)}
+                  className="px-3.5 py-1.5 text-xs font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg shadow-xs cursor-pointer"
+                  id="btn-submit-grn-approval"
+                >
+                  Submit for Approval
+                </button>
+                <button
+                  onClick={() => handlePostGRN(false)}
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs cursor-pointer"
+                  id="btn-post-grn-direct"
+                >
+                  Instant Post & Stock-In
+                </button>
+              </div>
             </div>
           </div>
         </div>

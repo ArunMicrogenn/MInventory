@@ -44,6 +44,9 @@ export interface Department {
   id: string;
   name: string;
   costCenter: string;
+  headName?: string;
+  headTitle?: string;
+  headEmail?: string;
 }
 
 export interface Supplier {
@@ -201,12 +204,14 @@ export interface GRNHeader {
   receivedDate: string;
   isDirect: boolean;
   reasonCode?: string; // mandatory if direct
-  status: "Draft" | "Posted" | "Reversed";
+  status: "Draft" | "Pending Approval" | "Approved" | "Posted" | "Rejected" | "Reversed";
   lines: GRNLine[];
   subTotal: number;
   taxTotal: number;
   discountTotal: number;
   grandTotal: number;
+  auditTrail?: AuditLog[];
+  approverRemarks?: string;
 }
 
 // 5. Receipt Return (Supplier Return)
