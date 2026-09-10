@@ -5,10 +5,13 @@ import {
 import { 
   ChefHat, Utensils, ClipboardCheck, CheckCircle2, XCircle, Plus, Eye, 
   ArrowRight, Send, Printer, RefreshCw, Calendar, Sparkles, AlertCircle, Layers,
-  BarChart3, DollarSign, TrendingUp, PackageCheck
+  BarChart3, DollarSign, TrendingUp, PackageCheck, Calculator, Sliders
 } from "lucide-react";
 import PrintButton from "./PrintButton";
 import PrintDocumentModal from "./PrintDocumentModal";
+import {
+  ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from "recharts";
 
 export interface FBRecipeBOMItem {
   itemId: string;
@@ -42,11 +45,14 @@ export interface FBProductionRequest {
   actualProduction?: {
     actualPortions: number;
     wastePortions: number;
+    yieldPercentage: number;
+    expiryDate: string;
     productionDate: string;
     chefName: string;
     remarks: string;
     actualIngredientsUsed: { itemId: string; usedQty: number }[];
   };
+  expiryDate?: string;
   materialIssueId?: string;
   auditTrail: AuditLog[];
 }
@@ -74,12 +80,83 @@ export default function FBProductionModule({
   currentUser,
   onRaiseMaterialIssue
 }: FBProductionModuleProps) {
-  const [activeTab, setActiveTab] = useState<"REQUESTS" | "RECIPES" | "ANALYTICS">("REQUESTS");
+  const [activeTab, setActiveTab] = useState<"REQUESTS" | "RECIPES" | "SCALER" | "ANALYTICS">("REQUESTS");
   const [selectedPR, setSelectedPR] = useState<FBProductionRequest | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showActualModal, setShowActualModal] = useState<FBProductionRequest | null>(null);
   const [printDoc, setPrintDoc] = useState<any | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Recipe Scaler State
+  const [scalerRecipeId, setScalerRecipeId] = useState<string>(recipes[0]?.id || "REC-01");
+  const [scalerPortions, setScalerPortions] = useState<number>(recipes[0]?.standardPortions || 50);
+
+  const activeScalerRecipe = useMemo(() => {
+    return recipes.find(r => r.id === scalerRecipeId) || recipes[0];
+  }, [scalerRecipeId, recipes]);
+
+  const scalerMultiplier = activeScalerRecipe ? scalerPortions / (activeScalerRecipe.standardPortions || 1) : 1;
+
+  const scaledIngredientsList = useMemo(() => {
+    if (!activeScalerRecipe) return [];
+    return activeScalerRecipe.ingredients.map(ing => {
+      const itm = items.find(i => i.id === ing.itemId);
+      const standardRate = itm ? (itm.lastPurchaseRate || itm.standardRate || 2.50) : 2.50;
+      const requiredQty = Math.round((ing.standardQty * scalerMultiplier) * 100) / 100;
+      const totalCost = requiredQty * standardRate;
+      return {
+        ...ing,
+        itemName: itm?.name || ing.itemId,
+        itemUnit: itm?.unit || "Units",
+        standardRate,
+        requiredQty,
+        totalCost
+      };
+    });
+  }, [activeScalerRecipe, scalerMultiplier, items]);
+
+  const scalerTotalCost = scaledIngredientsList.reduce((acc, curr) => acc + curr.totalCost, 0);
+  const scalerCostPerUnit = scalerPortions > 0 ? scalerTotalCost / scalerPortions : 0;
+
+  const handleRaisePRFromScaler = () => {
+    if (!activeScalerRecipe) return;
+    const newPR: FBProductionRequest = {
+      id: `PROD-2026-${String(productionRequests.length + 10).padStart(4, '0')}`,
+      propertyId: properties[0]?.id || "PROP-01",
+      recipeId: activeScalerRecipe.id,
+      recipeName: `${activeScalerRecipe.name} (Scaled - ${scalerPortions} ${activeScalerRecipe.unit})`,
+      targetPortions: scalerPortions,
+      departmentId: departments[0]?.id || "D-01",
+      storeId: stores[0]?.id || "S-01",
+      requiredDate: new Date().toISOString().split("T")[0],
+      status: "Pending Approval",
+      requesterId: currentUser.id,
+      requesterName: currentUser.name,
+      remarks: `Raised via Recipe Scaler for ${scalerPortions} portions.`,
+      estimatedCost: scalerTotalCost,
+      ingredients: scaledIngredientsList.map(ing => ({
+        itemId: ing.itemId,
+        requiredQty: ing.requiredQty,
+        standardRate: ing.standardRate
+      })),
+      auditTrail: [
+        {
+          id: `AUD-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          userId: currentUser.id,
+          userName: currentUser.name,
+          action: "Submitted",
+          details: `Production request created via Recipe Scaler for ${scalerPortions} portions.`
+        }
+      ]
+    };
+
+    setProductionRequests([newPR, ...productionRequests]);
+    setSuccessToast(`Successfully raised production request ${newPR.id} for ${activeScalerRecipe.name} (${scalerPortions} portions)!`);
+    setTimeout(() => setSuccessToast(null), 4000);
+    setActiveTab("REQUESTS");
+    setSelectedPR(newPR);
+  };
 
   // New Production Request Form State
   const [formPropertyId, setFormPropertyId] = useState(properties[0]?.id || "PROP-01");
@@ -93,6 +170,10 @@ export default function FBProductionModule({
   // Actual Production Entry Form State
   const [actualPortions, setActualPortions] = useState<number>(50);
   const [wastePortions, setWastePortions] = useState<number>(2);
+  const [actualYieldPercentage, setActualYieldPercentage] = useState<number>(100);
+  const [actualExpiryDate, setActualExpiryDate] = useState<string>(
+    new Date(Date.now() + 3 * 86400 * 1000).toISOString().split("T")[0]
+  );
   const [actualRemarks, setActualRemarks] = useState("Completed successfully with minor trimming waste");
 
   // Selected recipe computed ingredients
@@ -201,6 +282,8 @@ export default function FBProductionModule({
           actualProduction: {
             actualPortions,
             wastePortions,
+            yieldPercentage: actualYieldPercentage,
+            expiryDate: actualExpiryDate,
             productionDate: new Date().toISOString().split("T")[0],
             chefName: currentUser.name,
             remarks: actualRemarks,
@@ -209,6 +292,7 @@ export default function FBProductionModule({
               usedQty: ing.requiredQty // default usage matching planned or adjusted
             }))
           },
+          expiryDate: actualExpiryDate,
           auditTrail: [
             ...(r.auditTrail || []),
             {
@@ -358,6 +442,17 @@ export default function FBProductionModule({
         >
           <Utensils size={14} />
           <span>Recipe BOM Library ({recipes.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("SCALER")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === "SCALER"
+              ? "bg-slate-900 text-white shadow-xs"
+              : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+          }`}
+        >
+          <Calculator size={14} />
+          <span>Recipe Scaler</span>
         </button>
         <button
           onClick={() => setActiveTab("ANALYTICS")}
@@ -605,22 +700,182 @@ export default function FBProductionModule({
         </div>
       )}
 
+      {/* TAB: RECIPE SCALER */}
+      {activeTab === "SCALER" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Selector & Scaler Controls */}
+          <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
+            <div>
+              <span className="text-xs font-extrabold text-amber-700 uppercase tracking-wider block mb-1">Interactive Culinary Tool</span>
+              <h3 className="text-lg font-extrabold text-slate-900">Recipe Scaler & Batch Calculator</h3>
+              <p className="text-xs text-slate-500 mt-1">Select any finished recipe and target output quantity to instantly compute raw material requirements and estimated batch costs.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1.5">Select Finished Recipe / Dish</label>
+                <select
+                  value={scalerRecipeId}
+                  onChange={(e) => {
+                    const rId = e.target.value;
+                    setScalerRecipeId(rId);
+                    const rec = recipes.find(r => r.id === rId);
+                    if (rec) setScalerPortions(rec.standardPortions);
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900"
+                >
+                  {recipes.map(rec => (
+                    <option key={rec.id} value={rec.id}>
+                      {rec.name} (Standard Batch: {rec.standardPortions} {rec.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {activeScalerRecipe && (
+                <div className="p-3.5 bg-amber-50/70 rounded-xl border border-amber-200 text-xs space-y-1">
+                  <span className="font-bold text-amber-900 block">Recipe Standard Baseline</span>
+                  <p className="text-amber-800">Category: <strong>{activeScalerRecipe.category}</strong></p>
+                  <p className="text-amber-800">Standard Batch Size: <strong>{activeScalerRecipe.standardPortions} {activeScalerRecipe.unit}</strong></p>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700">Target Output Quantity ({activeScalerRecipe?.unit || "Portions"})</label>
+                  <span className="font-mono text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">
+                    Multiplier: {scalerMultiplier.toFixed(2)}x
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={scalerPortions}
+                  onChange={(e) => setScalerPortions(parseInt(e.target.value) || 1)}
+                  className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-extrabold text-slate-900 focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Quick Multiplier Buttons */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Quick Multiplier Presets</span>
+                <div className="grid grid-cols-4 gap-2">
+                  {[0.5, 1, 2, 5].map(mult => {
+                    const target = Math.round((activeScalerRecipe?.standardPortions || 50) * mult);
+                    return (
+                      <button
+                        key={mult}
+                        type="button"
+                        onClick={() => setScalerPortions(target)}
+                        className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          scalerPortions === target
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                            : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                        }`}
+                      >
+                        {mult}x ({target})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleRaisePRFromScaler}
+                  className="w-full py-3 bg-amber-700 text-white font-extrabold text-xs rounded-xl hover:bg-amber-800 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                >
+                  <Plus size={16} />
+                  <span>Raise Production Request ({scalerPortions} Portions)</span>
+                </button>
+                <p className="text-[11px] text-slate-400 text-center mt-2">Instantly queues a pending production request with scaled BOM requirements.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Scaled Bill of Materials Table */}
+          <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">Scaled Bill of Materials (BOM)</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Raw material requirements calculated for {scalerPortions} {activeScalerRecipe?.unit || "Portions"}</p>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-slate-400 block">Total Est. Cost</span>
+                <span className="text-lg font-extrabold text-slate-900">${scalerTotalCost.toFixed(2)}</span>
+                <span className="text-[10px] text-purple-700 font-bold block">(${scalerCostPerUnit.toFixed(2)} / unit)</span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-3">Raw Material Item</th>
+                    <th className="py-3 px-3 text-center">Standard Qty ({activeScalerRecipe?.standardPortions || 50})</th>
+                    <th className="py-3 px-3 text-center">Scaled Qty ({scalerPortions})</th>
+                    <th className="py-3 px-3 text-right">Standard Rate</th>
+                    <th className="py-3 px-3 text-right">Total Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {activeScalerRecipe?.ingredients.map((ing, idx) => {
+                    const itm = items.find(i => i.id === ing.itemId);
+                    const standardRate = itm ? (itm.lastPurchaseRate || itm.standardRate || 2.50) : 2.50;
+                    const scaledQty = Math.round((ing.standardQty * scalerMultiplier) * 100) / 100;
+                    const itemTotal = scaledQty * standardRate;
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50/60">
+                        <td className="py-3 px-3">
+                          <span className="font-bold text-slate-800 block">{itm?.name || ing.itemId}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">ID: {ing.itemId}</span>
+                        </td>
+                        <td className="py-3 px-3 text-center font-medium text-slate-600">
+                          {ing.standardQty} {itm?.unit || "Units"}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="px-2.5 py-1 bg-amber-50 text-amber-900 font-extrabold rounded-lg border border-amber-200">
+                            {scaledQty} {itm?.unit || "Units"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right text-slate-600 font-medium">
+                          ${standardRate.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-extrabold text-slate-900">
+                          ${itemTotal.toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TAB 3: UNIT COST & YIELD ANALYTICS DASHBOARD */}
       {activeTab === "ANALYTICS" && (() => {
         const analyticsData = productionRequests.map(pr => {
           const totalMatCost = pr.ingredients.reduce((acc, ing) => acc + (ing.requiredQty * ing.standardRate), 0);
-          const outputPortions = pr.actualProduction ? pr.actualProduction.actualPortions : pr.targetPortions;
-          const unitCost = outputPortions > 0 ? totalMatCost / outputPortions : 0;
+          const yieldPct = pr.actualProduction ? (pr.actualProduction.yieldPercentage ?? 100) : 100;
+          const rawOutputPortions = pr.actualProduction ? pr.actualProduction.actualPortions : pr.targetPortions;
+          const effectivePortions = Math.round((rawOutputPortions * (yieldPct / 100)) * 100) / 100;
+          const unitCost = effectivePortions > 0 ? totalMatCost / effectivePortions : 0;
           return {
             ...pr,
             totalMatCost,
-            outputPortions,
+            outputPortions: rawOutputPortions,
+            effectivePortions,
+            yieldPct,
             unitCost
           };
         });
 
         const totalInvestment = analyticsData.reduce((acc, curr) => acc + curr.totalMatCost, 0);
-        const totalPortions = analyticsData.reduce((acc, curr) => acc + curr.outputPortions, 0);
+        const totalPortions = analyticsData.reduce((acc, curr) => acc + curr.effectivePortions, 0);
         const avgUnitCost = totalPortions > 0 ? totalInvestment / totalPortions : 0;
 
         return (
@@ -672,6 +927,83 @@ export default function FBProductionModule({
               </div>
             </div>
 
+            {/* Cost per Produced Unit Trend Chart over Last 30 Days */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Cost per Produced Unit Trend (Last 30 Days)</h3>
+                  <p className="text-xs text-slate-500">Tracking unit cost fluctuations across top-performing finished recipe batches</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-purple-50 text-purple-700 font-bold text-xs rounded-lg border border-purple-200">
+                    Recharts Analytics
+                  </span>
+                </div>
+              </div>
+
+              <div className="h-72 w-full pt-4">
+                {(() => {
+                  const chartData = analyticsData
+                    .slice()
+                    .sort((a, b) => new Date(a.requiredDate).getTime() - new Date(b.requiredDate).getTime())
+                    .map(item => ({
+                      date: item.requiredDate,
+                      recipeShort: item.recipeName.split('(')[0].trim(),
+                      fullRecipe: item.recipeName,
+                      unitCost: parseFloat(item.unitCost.toFixed(2)),
+                      batchId: item.id
+                    }));
+
+                  return (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 25 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="#64748b" 
+                          fontSize={11} 
+                          tickLine={false}
+                          angle={-15}
+                          textAnchor="end"
+                        />
+                        <YAxis 
+                          stroke="#64748b" 
+                          fontSize={11} 
+                          tickLine={false}
+                          unit="$" 
+                        />
+                        <Tooltip 
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-slate-900 text-white p-3 rounded-xl shadow-lg text-xs space-y-1">
+                                  <p className="font-bold text-amber-400">{data.fullRecipe}</p>
+                                  <p className="text-slate-300">Batch ID: <span className="font-mono text-white">{data.batchId}</span></p>
+                                  <p className="text-slate-300">Date: <span className="text-white">{label}</span></p>
+                                  <p className="font-bold text-emerald-400">Unit Cost: ${payload[0].value} / portion</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="unitCost" 
+                          name="Cost Per Unit ($)" 
+                          stroke="#8b5cf6" 
+                          strokeWidth={3}
+                          dot={{ r: 5, fill: "#8b5cf6", strokeWidth: 2, stroke: "#ffffff" }}
+                          activeDot={{ r: 8, fill: "#7c3aed" }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
+              </div>
+            </div>
+
             {/* Detailed Unit Cost Table */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
               <div className="p-5 border-b border-slate-100 flex items-center justify-between">
@@ -701,11 +1033,14 @@ export default function FBProductionModule({
                       <tr key={row.id} className="hover:bg-slate-50/60 transition-all">
                         <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
                           {row.id}
-                          <span className="block text-[10px] text-slate-400 font-normal">{row.requiredDate}</span>
+                          <span className="block text-[10px] text-slate-400 font-normal">Req: {row.requiredDate}</span>
+                          {row.expiryDate && (
+                            <span className="block text-[10px] text-amber-700 font-bold">Exp: {row.expiryDate}</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="font-bold text-slate-800 block">{row.recipeName}</span>
-                          <span className="text-[10px] text-slate-500">Dept: {row.departmentId} • Req: {row.requesterName}</span>
+                          <span className="text-[10px] text-slate-500">Dept: {row.departmentId} • Yield: {row.yieldPct}%</span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
@@ -722,12 +1057,10 @@ export default function FBProductionModule({
                           )}
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <strong className="text-slate-900">{row.outputPortions} portions</strong>
-                          {row.actualProduction && (
-                            <span className="block text-[10px] text-emerald-600 font-bold">
-                              (Actual yield w/ {row.actualProduction.wastePortions} waste)
-                            </span>
-                          )}
+                          <strong className="text-slate-900">{row.effectivePortions} effective</strong>
+                          <span className="block text-[10px] text-slate-500">
+                            (Raw: {row.outputPortions} | Waste: {row.actualProduction ? row.actualProduction.wastePortions : 0})
+                          </span>
                         </td>
                         <td className="py-3.5 px-4 text-right font-bold text-slate-900">
                           ${row.totalMatCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -928,6 +1261,31 @@ export default function FBProductionModule({
                   value={wastePortions}
                   onChange={(e) => setWastePortions(parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Yield Percentage (%)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={actualYieldPercentage}
+                  onChange={(e) => setActualYieldPercentage(parseFloat(e.target.value) || 100)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                  required
+                />
+                <span className="text-[10px] text-slate-500 mt-0.5 block">Used to compute effective output and automatically adjust unit cost.</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Batch Expiry Date</label>
+                <input
+                  type="date"
+                  value={actualExpiryDate}
+                  onChange={(e) => setActualExpiryDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                  required
                 />
               </div>
 
