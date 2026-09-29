@@ -31,6 +31,7 @@ export default function MasterDataModule({
   const [itemRate, setItemRate] = useState(0);
   const [itemUnit, setItemUnit] = useState("KG");
   const [itemQc, setItemQc] = useState(false);
+  const [itemMinOrderLevel, setItemMinOrderLevel] = useState(20);
 
   const [showStoreForm, setShowStoreForm] = useState(false);
   const [storeName, setStoreName] = useState("");
@@ -48,12 +49,14 @@ export default function MasterDataModule({
       lastPurchaseRate: itemRate,
       unit: itemUnit,
       qcRequired: itemQc,
-      isActive: true
+      isActive: true,
+      minOrderLevel: itemMinOrderLevel
     };
     setItems([...items, newItem]);
     setItemName("");
     setItemSku("");
     setItemRate(0);
+    setItemMinOrderLevel(20);
     setShowItemForm(false);
   };
 
@@ -204,6 +207,16 @@ export default function MasterDataModule({
                     className="w-full p-2 text-xs border border-slate-200 rounded-lg bg-white"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-500">Minimum Reorder Level</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={itemMinOrderLevel}
+                    onChange={(e) => setItemMinOrderLevel(parseInt(e.target.value) || 0)}
+                    className="w-full p-2 text-xs border border-slate-200 rounded-lg bg-white font-bold"
+                  />
+                </div>
                 <div className="flex items-center gap-2 pt-5">
                   <input
                     type="checkbox"
@@ -243,6 +256,7 @@ export default function MasterDataModule({
                     <th className="p-3">Std Rate ($)</th>
                     <th className="p-3">Last Rate ($)</th>
                     <th className="p-3">UOM</th>
+                    <th className="p-3">Min Threshold</th>
                     <th className="p-3">QC Status</th>
                     <th className="p-3 text-right">Status</th>
                   </tr>
@@ -266,6 +280,7 @@ export default function MasterDataModule({
                       <td className="p-3">${item.standardRate.toFixed(2)}</td>
                       <td className="p-3">${item.lastPurchaseRate.toFixed(2)}</td>
                       <td className="p-3">{item.unit}</td>
+                      <td className="p-3 font-bold text-amber-700">{item.minOrderLevel ?? 20} {item.unit}</td>
                       <td className="p-3">
                         <span className={`px-1.5 py-0.5 rounded text-[10px] ${item.qcRequired ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-400'}`}>
                           {item.qcRequired ? 'Mandatory QC' : 'Direct Post'}

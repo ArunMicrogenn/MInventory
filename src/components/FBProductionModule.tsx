@@ -41,6 +41,7 @@ export interface FBProductionRequest {
   requesterName: string;
   remarks: string;
   estimatedCost: number;
+  estimatedValue?: number;
   ingredients: { itemId: string; requiredQty: number; standardRate: number }[];
   actualProduction?: {
     actualPortions: number;

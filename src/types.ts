@@ -80,7 +80,9 @@ export type TransactionStatus =
   | "Cancelled"
   | "Posted"
   | "Reversed"
-  | "Counted";
+  | "Counted"
+  | "Material Issued"
+  | "Completed";
 
 export interface AuditLog {
   id: string;
@@ -262,23 +264,36 @@ export interface RateModHeader {
 export interface IssueLine {
   id: string;
   itemId: string;
-  qtyIssued: number;
-  batchLotNumber: string;
+  qtyIssued?: number;
+  issuedQty?: number;
+  rate?: number;
+  batchLotNumber?: string;
   sourceMRLineId?: string;
+  requestedQty?: number;
+  unitRate?: number;
+  totalAmount?: number;
 }
 
 export interface IssueHeader {
   id: string; // ISS-YYYY-0001
   propertyId?: string;
   sourceMRId?: string;
-  requestingDeptId: string;
+  requestingDeptId?: string;
+  departmentId?: string;
   storeId: string;
-  costCenter: string;
+  costCenter?: string;
   issueDate: string;
-  isDirect: boolean;
+  isDirect?: boolean;
   reasonCode?: string; // mandatory if direct
   status: "Draft" | "Posted" | "Reversed";
   lines: IssueLine[];
+  totalValue?: number;
+  issuedBy?: string;
+  issuedById?: string;
+  amendmentNumber?: number;
+  auditTrail?: AuditLog[];
+  remarks?: string;
+  purpose?: string;
 }
 
 // 8. Issue Return

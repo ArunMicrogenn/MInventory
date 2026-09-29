@@ -37,7 +37,7 @@ import AuthScreen from "./components/AuthScreen";
 import { 
   LayoutDashboard, Database, ClipboardList, ShoppingBag, 
   Shuffle, CheckSquare, RefreshCw, Layers, History, HelpCircle, 
-  UserSquare2, ArrowLeftRight, FileText, CalendarCheck2, Printer, ShieldCheck, ChefHat
+  UserSquare2, ArrowLeftRight, FileText, CalendarCheck2, Printer, ShieldCheck, ChefHat, AlertTriangle
 } from "lucide-react";
 
 export default function App() {

@@ -119,7 +119,7 @@ export const isItemWaitingForUserRole = (item: ApprovalItem, user: User): { matc
   const hasAllAccess = perms.includes("all-access");
 
   // 1. Approver / Executive / Finance role
-  if (role === Role.Approver || role === "Approver" || dept.includes("finance") || perms.includes("approve-PR") || perms.includes("approve-PO")) {
+  if (role === Role.Approver || (role as string) === "Approver" || dept.includes("finance") || perms.includes("approve-PR") || perms.includes("approve-PO")) {
     if (item.type === "PR" || item.type === "PO" || item.isEscalated || item.totalValue >= 500) {
       return { 
         matches: true, 
@@ -129,7 +129,7 @@ export const isItemWaitingForUserRole = (item: ApprovalItem, user: User): { matc
   }
 
   // 2. Store Manager role
-  if (role === Role.StoreManager || role === "Store Manager" || perms.includes("confirm-GRN") || perms.includes("approve-MR")) {
+  if (role === Role.StoreManager || (role as string) === "Store Manager" || perms.includes("confirm-GRN") || perms.includes("approve-MR")) {
     if (item.type === "GRN" || item.type === "MR" || item.storeName.toLowerCase().includes("store")) {
       return { 
         matches: true, 
@@ -139,7 +139,7 @@ export const isItemWaitingForUserRole = (item: ApprovalItem, user: User): { matc
   }
 
   // 3. Purchase Officer role
-  if (role === Role.PurchaseOfficer || role === "Purchase Officer" || dept.includes("procurement") || perms.includes("raise-PO") || perms.includes("convert-PR-to-PO")) {
+  if (role === Role.PurchaseOfficer || (role as string) === "Purchase Officer" || dept.includes("procurement") || perms.includes("raise-PO") || perms.includes("convert-PR-to-PO")) {
     if (item.type === "PO" || item.type === "PR") {
       return { 
         matches: true, 
@@ -149,7 +149,7 @@ export const isItemWaitingForUserRole = (item: ApprovalItem, user: User): { matc
   }
 
   // 4. Store Keeper role
-  if (role === Role.StoreKeeper || role === "Store Keeper" || perms.includes("post-GRN")) {
+  if (role === Role.StoreKeeper || (role as string) === "Store Keeper" || perms.includes("post-GRN")) {
     if (item.type === "GRN" || item.type === "MR") {
       return { 
         matches: true, 
